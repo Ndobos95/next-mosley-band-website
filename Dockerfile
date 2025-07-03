@@ -11,10 +11,17 @@ RUN npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
+
+# Declare build arguments
+ARG DATABASE_URL
+
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 COPY config ./config
+
+# Pass environment variables during build time
+ENV DATABASE_URL=${DATABASE_URL}
 
 # Generate Prisma client with schema
 RUN npx prisma generate
