@@ -16,6 +16,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 COPY config ./config
 
+# Generate Prisma client with schema
+RUN npx prisma generate
+
 # Build the application
 RUN npm run build
 
