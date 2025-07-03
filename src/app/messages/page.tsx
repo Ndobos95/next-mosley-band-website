@@ -6,6 +6,9 @@ import { Label } from '@/components/ui/label'
 import { createMessage } from './actions'
 import type { Message } from '@prisma/client'
 
+// Force dynamic rendering to avoid database access during build
+export const dynamic = 'force-dynamic'
+
 export default async function MessagesPage() {
   const messages = await prisma.message.findMany({
     orderBy: { createdAt: 'desc' }
