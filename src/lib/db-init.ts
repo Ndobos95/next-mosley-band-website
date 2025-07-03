@@ -42,7 +42,7 @@ export async function initializeDatabase() {
           cwd: process.cwd()
         })
         console.log('✅ Migrations up to date')
-      } catch (error) {
+      } catch {
         console.log('⚠️ Migration check completed (may have been already up to date)')
       }
     }
