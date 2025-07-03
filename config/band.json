@@ -1,0 +1,59 @@
+{
+  "organization": {
+    "name": "Sample High School Band",
+    "shortName": "Sample Band",
+    "contactEmail": "director@sampleschool.edu",
+    "phone": "(555) 123-4567",
+    "website": "https://sampleschool.edu/band"
+  },
+  "branding": {
+    "primaryColor": "#1a365d",
+    "secondaryColor": "#2d3748",
+    "accentColor": "#3182ce",
+    "logoUrl": "/logo.png",
+    "faviconUrl": "/favicon.ico"
+  },
+  "features": {
+    "payments": true,
+    "fileManager": true,
+    "calendar": true,
+    "analytics": true
+  },
+  "payments": {
+    "stripePublishableKey": "",
+    "categories": [
+      {
+        "id": "band-fees",
+        "name": "Band Fees",
+        "description": "Annual band program fees",
+        "amount": 25000,
+        "allowPartialPayment": false,
+        "required": true
+      },
+      {
+        "id": "trip-payment",
+        "name": "Trip Payment",
+        "description": "Spring trip to competition",
+        "amount": 45000,
+        "allowPartialPayment": true,
+        "required": false
+      },
+      {
+        "id": "equipment",
+        "name": "Equipment Rental",
+        "description": "Instrument rental and maintenance",
+        "amount": 15000,
+        "allowPartialPayment": false,
+        "required": false
+      }
+    ]
+  },
+  "calendar": {
+    "googleCalendarId": "",
+    "publicView": true
+  },
+  "analytics": {
+    "umamiWebsiteId": "",
+    "umamiUrl": ""
+  }
+}

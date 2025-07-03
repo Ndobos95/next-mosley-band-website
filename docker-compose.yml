@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  band-website:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/band.db
+    volumes:
+      - ./config:/app/config:ro
+      - band_data:/app/data
+      - band_uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  band_data:
+  band_uploads:
