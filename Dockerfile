@@ -32,6 +32,10 @@ ENV NODE_ENV production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Install Prisma CLI for runtime migrations
+COPY package.json package-lock.json ./
+RUN npm ci --only=production && npm install prisma
+
 # Copy built application
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -41,8 +45,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/config ./config
 # Copy Prisma files for runtime migrations
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
 # Create directories for volumes
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
