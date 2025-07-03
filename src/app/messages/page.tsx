@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createMessage } from './actions'
+import type { Message } from '@prisma/client'
 
 export default async function MessagesPage() {
   const messages = await prisma.message.findMany({
@@ -48,7 +49,7 @@ export default async function MessagesPage() {
             </CardContent>
           </Card>
         ) : (
-          messages.map((message) => (
+          messages.map((message: Message) => (
             <Card key={message.id}>
               <CardHeader>
                 <CardTitle className="text-lg">Message #{message.id}</CardTitle>
