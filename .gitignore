@@ -46,6 +46,5 @@ next-env.d.ts
 *.db-wal
 *.db-shm
 /prisma/dev.db*
-/prisma/migrations/**/migration.sql
 
 /src/generated/prisma
