@@ -10,6 +10,98 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Authentication tables for better-auth
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(PARENT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  sessions      Session[]
+  accounts      Account[]
+  students      StudentParent[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String   @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([providerId, accountId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@unique([identifier, value])
+}
+
+// User roles
+enum UserRole {
+  PARENT
+  DIRECTOR
+}
+
+// Band program specific models
+model Student {
+  id         String          @id @default(cuid())
+  name       String
+  instrument String
+  grade      String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  
+  parents    StudentParent[]
+}
+
+model StudentParent {
+  id        String   @id @default(cuid())
+  userId    String
+  studentId String
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, studentId])
+}
+
+// Test data
 model Message {
   id        Int      @id @default(autoincrement())
   content   String
