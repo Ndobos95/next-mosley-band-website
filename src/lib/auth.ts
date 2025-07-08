@@ -5,7 +5,7 @@ import { Resend } from "resend"
 
 console.log('🚀 Initializing better-auth...')
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
@@ -22,6 +22,10 @@ export const auth = betterAuth({
     requireEmailVerification: false, // Temporarily disable to test basic auth
     sendEmailVerification: async (user: { email: string }, url: string) => {
       // Send verification email via Resend
+      if (!resend) {
+        console.warn('⚠️ Resend not configured, skipping email verification')
+        return
+      }
       await resend.emails.send({
         from: process.env.FROM_EMAIL || "noreply@localhost",
         to: user.email,
