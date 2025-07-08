@@ -40,6 +40,12 @@
 - **Public access**: Calendar viewable without login
 - **No RSVP or event management**: Display and sync only
 
+### Dashboard Architecture
+- **Unified dashboard**: Single `/dashboard` URL for all authenticated users
+- **Role-based content**: Different interfaces shown based on user role (parent vs director)
+- **Server-side role detection**: User role determines which dashboard component renders
+- **Seamless experience**: No confusion about where to go after login
+
 ## Important Workflows
 
 ### Director Workflow
@@ -109,11 +115,15 @@
 │   ├── app/
 │   │   ├── globals.css
 │   │   ├── layout.tsx (with sidebar layout)
-│   │   └── page.tsx (Hello World)
+│   │   ├── page.tsx (Hello World)
+│   │   └── dashboard/ (planned - unified dashboard)
+│   │       └── page.tsx (role-based dashboard routing)
 │   └── components/
 │       ├── app-sidebar.tsx (collapsible sidebar with navigation)
 │       ├── theme-provider.tsx
-│       └── ui/ (shadcn/ui components)
+│       ├── parent-dashboard.tsx (planned - parent view)
+│       ├── director-dashboard.tsx (planned - director view)
+│       └── ui/ (shadcn/ui components: card, badge, table, tabs, etc.)
 └── public/ (Next.js assets)
 ```
 
@@ -123,12 +133,37 @@
 - ✅ Tailwind CSS configured
 - ✅ Development server ready (`npm run dev`)
 - ✅ Collapsible sidebar with navigation (Payments, Files, Calendar, Login)
+- ✅ shadcn/ui components installed for dashboard (card, badge, table, tabs, dialog, form, etc.)
+
+### Dashboard Component Requirements
+
+**Parent Dashboard Components:**
+- `Card` - Individual student information cards
+- `Badge` - Payment status indicators (paid, pending, overdue)
+- `Progress` - Payment completion bars
+- `Button` - Actions (Add Student, Make Payment, Download File)
+- `Dialog` - Add/Edit student forms
+- `Table` - Payment history, file downloads
+- `Tabs` - Switch between multiple students
+- `Alert` - Important notifications
+
+**Director Dashboard Components:**
+- `Table` - Student roster overview
+- `Badge` - System status indicators
+- `Card` - Statistics cards (total students, pending payments)
+- `Alert` - Unmatched registrations notifications
+- `Button` - Admin actions (CSV import, file management)
+- `Progress` - System health indicators
+- `Tabs` - Switch between admin sections
 
 ### Phase 2: Authentication & User Management 🔄 IN PROGRESS
 1. **✅ Integrate Better Auth authentication** - Better Auth configured for parents and directors
-2. **🔄 Create parent registration** with student info form (name, instrument)
-3. **🔄 Build fuzzy string matching** system for student roster matching
-4. **🔄 Add "add student" functionality** to parent dashboard
+2. **🔄 Create unified dashboard** with role-based content (`/dashboard`)
+3. **🔄 Build parent dashboard component** - Student cards, payments, file downloads
+4. **🔄 Build director dashboard component** - Roster overview, admin tools, analytics
+5. **🔄 Create parent registration** with student info form (name, instrument)
+6. **🔄 Build fuzzy string matching** system for student roster matching
+7. **🔄 Add "add student" functionality** to parent dashboard
 
 ### Phase 3: Student Roster Management 🔄 PENDING
 1. **🔄 Create director CSV import** system (student name, instrument)
@@ -168,4 +203,4 @@
 4. **🔄 End-to-end testing** and optimization
 
 ### Next Steps
-Continue with Phase 2 tasks: parent registration form, fuzzy string matching system, and parent dashboard functionality.
+Continue with Phase 2 tasks: Create unified dashboard with role-based content, build parent and director dashboard components, then implement parent registration and fuzzy string matching.
