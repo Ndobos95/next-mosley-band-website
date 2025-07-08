@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Calendar, CreditCard, FileText, LogIn } from "lucide-react"
 
 import {
@@ -11,52 +12,62 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
+  SidebarRail,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 
-const items = [
-  {
-    title: "Payments",
-    url: "/payments",
-    icon: CreditCard,
-  },
-  {
-    title: "Files",
-    url: "/files",
-    icon: FileText,
-  },
-  {
-    title: "Calendar",
-    url: "/calendar",
-    icon: Calendar,
-  },
-]
+// Band program navigation data
+const data = {
+  navMain: [
+    {
+      title: "Band Program",
+      items: [
+        {
+          title: "Payments",
+          url: "/payments",
+          icon: CreditCard,
+        },
+        {
+          title: "Files",
+          url: "/files",
+          icon: FileText,
+        },
+        {
+          title: "Calendar",
+          url: "/calendar",
+          icon: Calendar,
+        },
+      ],
+    },
+  ],
+}
 
-export function AppSidebar() {
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar {...props}>
       <SidebarHeader>
-        <SidebarTrigger />
+        <h2 className="text-lg font-semibold px-4 py-2">Band Program</h2>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Band Program</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {data.navMain.map((item) => (
+          <SidebarGroup key={item.title}>
+            <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {item.items.map((menuItem) => (
+                  <SidebarMenuItem key={menuItem.title}>
+                    <SidebarMenuButton asChild>
+                      <a href={menuItem.url}>
+                        <menuItem.icon />
+                        <span>{menuItem.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <Button variant="outline" className="w-full justify-start" asChild>
@@ -66,6 +77,7 @@ export function AppSidebar() {
           </a>
         </Button>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   )
 }
