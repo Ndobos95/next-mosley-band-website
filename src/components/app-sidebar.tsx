@@ -59,9 +59,11 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <Button variant="outline" className="w-full justify-start">
-          <LogIn className="mr-2 h-4 w-4" />
-          Login
+        <Button variant="outline" className="w-full justify-start" asChild>
+          <a href="/login">
+            <LogIn className="mr-2 h-4 w-4" />
+            Login
+          </a>
         </Button>
       </SidebarFooter>
     </Sidebar>
