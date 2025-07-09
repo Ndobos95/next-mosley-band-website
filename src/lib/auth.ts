@@ -58,7 +58,7 @@ export const auth = betterAuth({
         type: "string",
         defaultValue: "PARENT",
         validation: (value: string) => {
-          return value === "PARENT" || value === "DIRECTOR"
+          return value === "PARENT" || value === "DIRECTOR" || value === "BOOSTER"
         }
       }
     }

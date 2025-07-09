@@ -22,7 +22,7 @@ export async function requireAuth() {
   return session
 }
 
-export async function requireRole(requiredRole: "PARENT" | "DIRECTOR") {
+export async function requireRole(requiredRole: "PARENT" | "DIRECTOR" | "BOOSTER") {
   const session = await requireAuth()
   if (session.user.role !== requiredRole) {
     throw new Error(`Access denied. Required role: ${requiredRole}`)

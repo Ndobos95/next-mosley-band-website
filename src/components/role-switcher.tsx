@@ -7,13 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 interface RoleSwitcherProps {
   currentRole: string
-  onRoleChange: (role: "PARENT" | "DIRECTOR") => void
+  onRoleChange: (role: "PARENT" | "DIRECTOR" | "BOOSTER") => void
 }
 
 export function RoleSwitcher({ currentRole, onRoleChange }: RoleSwitcherProps) {
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleRoleChange = async (newRole: "PARENT" | "DIRECTOR") => {
+  const handleRoleChange = async (newRole: "PARENT" | "DIRECTOR" | "BOOSTER") => {
     if (newRole === currentRole) return
     
     setIsLoading(true)
@@ -40,19 +40,27 @@ export function RoleSwitcher({ currentRole, onRoleChange }: RoleSwitcherProps) {
       <CardContent className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-sm">Current:</span>
-          <Badge variant={currentRole === "DIRECTOR" ? "default" : "secondary"}>
+          <Badge variant={currentRole === "DIRECTOR" ? "default" : currentRole === "BOOSTER" ? "destructive" : "secondary"}>
             {currentRole}
           </Badge>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             size="sm"
             variant={currentRole === "PARENT" ? "default" : "outline"}
             onClick={() => handleRoleChange("PARENT")}
             disabled={isLoading || currentRole === "PARENT"}
           >
-            Parent View
+            Parent
+          </Button>
+          <Button
+            size="sm"
+            variant={currentRole === "BOOSTER" ? "default" : "outline"}
+            onClick={() => handleRoleChange("BOOSTER")}
+            disabled={isLoading || currentRole === "BOOSTER"}
+          >
+            Booster
           </Button>
           <Button
             size="sm"
@@ -60,7 +68,7 @@ export function RoleSwitcher({ currentRole, onRoleChange }: RoleSwitcherProps) {
             onClick={() => handleRoleChange("DIRECTOR")}
             disabled={isLoading || currentRole === "DIRECTOR"}
           >
-            Director View
+            Director
           </Button>
         </div>
         

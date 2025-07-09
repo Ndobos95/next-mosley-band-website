@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { ParentDashboard } from "@/components/parent-dashboard"
 import { DirectorDashboard } from "@/components/director-dashboard"
+import { BoosterDashboard } from "@/components/booster-dashboard"
 import { RoleSwitcher } from "@/components/role-switcher"
 
 interface DashboardContentProps {
@@ -14,8 +15,8 @@ interface DashboardContentProps {
 }
 
 export function DashboardContent({ initialUser }: DashboardContentProps) {
-  const [currentRole, setCurrentRole] = useState<"PARENT" | "DIRECTOR">(
-    initialUser.role as "PARENT" | "DIRECTOR"
+  const [currentRole, setCurrentRole] = useState<"PARENT" | "DIRECTOR" | "BOOSTER">(
+    initialUser.role as "PARENT" | "DIRECTOR" | "BOOSTER"
   )
 
   const userWithCurrentRole = {
@@ -36,6 +37,8 @@ export function DashboardContent({ initialUser }: DashboardContentProps) {
       {/* Dashboard Content Based on Role */}
       {currentRole === "DIRECTOR" ? (
         <DirectorDashboard user={userWithCurrentRole} />
+      ) : currentRole === "BOOSTER" ? (
+        <BoosterDashboard user={userWithCurrentRole} />
       ) : (
         <ParentDashboard user={userWithCurrentRole} />
       )}
