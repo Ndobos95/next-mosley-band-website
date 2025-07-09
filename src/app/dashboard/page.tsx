@@ -12,8 +12,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { requireAuth } from "@/lib/auth-server"
-import { ParentDashboard } from "@/components/parent-dashboard"
-import { DirectorDashboard } from "@/components/director-dashboard"
+import { DashboardContent } from "@/components/dashboard-content"
 
 export const dynamic = 'force-dynamic'
 
@@ -40,11 +39,7 @@ export default async function Page() {
           </Breadcrumb>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
-          {user.role === "DIRECTOR" ? (
-            <DirectorDashboard user={user} />
-          ) : (
-            <ParentDashboard user={user} />
-          )}
+          <DashboardContent initialUser={user} />
         </div>
       </SidebarInset>
     </SidebarProvider>
