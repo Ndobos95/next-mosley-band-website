@@ -19,6 +19,27 @@ async function main() {
     })
   }
 
+  // Seed director's roster (mock data for testing)
+  const rosterStudents = [
+    { name: "John Smith", instrument: "Trumpet" },
+    { name: "Sarah Johnson", instrument: "Flute" },
+    { name: "Mike Davis", instrument: "Drums" },
+    { name: "Emily Wilson", instrument: "Clarinet" },
+    { name: "David Brown", instrument: "Saxophone" },
+    { name: "Lisa Garcia", instrument: "Trombone" },
+    { name: "Ryan Martinez", instrument: "French Horn" },
+    { name: "Ashley Lee", instrument: "Piccolo" }
+  ]
+
+  for (const student of rosterStudents) {
+    await prisma.student.create({
+      data: {
+        name: student.name,
+        instrument: student.instrument
+      }
+    })
+  }
+
   console.log('Seeding completed.')
 }
 

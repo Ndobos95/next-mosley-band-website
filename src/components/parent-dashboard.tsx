@@ -1,5 +1,10 @@
+"use client"
+
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { AddStudentForm } from "@/components/add-student-form"
+import { StudentCards } from "@/components/student-cards"
 
 interface ParentDashboardProps {
   user: {
@@ -10,6 +15,13 @@ interface ParentDashboardProps {
 }
 
 export function ParentDashboard({ user }: ParentDashboardProps) {
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  
+  const handleStudentAdded = () => {
+    // Trigger refresh of student list
+    setRefreshTrigger(prev => prev + 1)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -22,14 +34,19 @@ export function ParentDashboard({ user }: ParentDashboardProps) {
         </Badge>
       </div>
       
+      <div className="grid gap-6 md:grid-cols-2">
+        <AddStudentForm onStudentAdded={handleStudentAdded} />
+        <StudentCards refreshTrigger={refreshTrigger} />
+      </div>
+      
       <Card>
         <CardHeader>
-          <CardTitle>Your Dashboard</CardTitle>
+          <CardTitle>Getting Started</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            This is your parent dashboard. Here you&apos;ll be able to manage your students, 
-            make payments, and access important files.
+            Welcome to the band program! Add your student above to begin managing 
+            payments, accessing files, and staying connected with the program.
           </p>
         </CardContent>
       </Card>

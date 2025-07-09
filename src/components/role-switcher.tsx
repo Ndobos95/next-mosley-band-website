@@ -18,10 +18,23 @@ export function RoleSwitcher({ currentRole, onRoleChange }: RoleSwitcherProps) {
     
     setIsLoading(true)
     try {
-      // In a real app, this would be an API call to update the user's role
-      // For testing, we'll just simulate it with a delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-      onRoleChange(newRole)
+      // Call the API to update the user's role in the database
+      const response = await fetch('/api/user/update-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: newRole })
+      })
+
+      if (response.ok) {
+        onRoleChange(newRole)
+        // Force a page reload to update the session
+        window.location.reload()
+      } else {
+        const error = await response.json()
+        console.error('Error updating role:', error)
+      }
     } catch (error) {
       console.error("Error switching role:", error)
     } finally {
