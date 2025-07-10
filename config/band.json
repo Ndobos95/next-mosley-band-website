@@ -55,5 +55,20 @@
   "analytics": {
     "umamiWebsiteId": "",
     "umamiUrl": ""
-  }
+  },
+  "instruments": [
+    "Trumpet",
+    "Tuba",
+    "Baritone",
+    "Flute",
+    "Clarinet",
+    "Saxophone",
+    "Trombone",
+    "French Horn",
+    "Oboe",
+    "Bassoon",
+    "Piccolo",
+    "Percussion",
+    "Colorguard"
+  ]
 }

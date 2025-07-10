@@ -42,6 +42,7 @@ export interface BandConfig {
     umamiWebsiteId: string
     umamiUrl: string
   }
+  instruments: string[]
 }
 
 export const config: BandConfig = bandConfig as BandConfig

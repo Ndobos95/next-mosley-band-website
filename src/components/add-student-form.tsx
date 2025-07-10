@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react"
+import { config } from "@/lib/config"
 
 interface AddStudentFormProps {
   onStudentAdded: () => void
@@ -96,15 +98,18 @@ export function AddStudentForm({ onStudentAdded }: AddStudentFormProps) {
           
           <div className="space-y-2">
             <Label htmlFor="instrument">Instrument</Label>
-            <Input
-              id="instrument"
-              type="text"
-              placeholder="Enter instrument"
-              value={instrument}
-              onChange={(e) => setInstrument(e.target.value)}
-              required
-              disabled={isSubmitting}
-            />
+            <Select value={instrument} onValueChange={setInstrument} disabled={isSubmitting}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select an instrument" />
+              </SelectTrigger>
+              <SelectContent>
+                {config.instruments.map((inst) => (
+                  <SelectItem key={inst} value={inst}>
+                    {inst}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <Button

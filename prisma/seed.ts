@@ -23,7 +23,7 @@ async function main() {
   const rosterStudents = [
     { name: "John Smith", instrument: "Trumpet" },
     { name: "Sarah Johnson", instrument: "Flute" },
-    { name: "Mike Davis", instrument: "Drums" },
+    { name: "Mike Davis", instrument: "Percussion" },
     { name: "Emily Wilson", instrument: "Clarinet" },
     { name: "David Brown", instrument: "Saxophone" },
     { name: "Lisa Garcia", instrument: "Trombone" },

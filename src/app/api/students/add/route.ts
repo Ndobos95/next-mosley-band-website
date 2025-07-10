@@ -23,22 +23,33 @@ export async function POST(request: NextRequest) {
     const normalizedInput = name.toLowerCase().trim()
     const rosterStudents = await prisma.student.findMany()
     
-    // Simple fuzzy matching logic
-    const match = rosterStudents.find(student => {
+    // First, find all name matches
+    const nameMatches = rosterStudents.filter(student => {
       const studentName = student.name.toLowerCase()
-      const studentInstrument = student.instrument.toLowerCase()
-      const inputInstrument = instrument.toLowerCase()
       
       // Check if names match (contains or similar)
-      const nameMatch = studentName.includes(normalizedInput) || 
-                       normalizedInput.includes(studentName) ||
-                       studentName.split(' ').some(word => normalizedInput.includes(word))
-      
-      // Check if instruments match
-      const instrumentMatch = studentInstrument === inputInstrument
-      
-      return nameMatch && instrumentMatch
+      return studentName.includes(normalizedInput) || 
+             normalizedInput.includes(studentName) ||
+             studentName.split(' ').some(word => normalizedInput.includes(word))
     })
+    
+    let match = null
+    
+    if (nameMatches.length === 1) {
+      // Single name match - use it regardless of instrument
+      match = nameMatches[0]
+    } else if (nameMatches.length > 1) {
+      // Multiple name matches - use instrument to resolve conflict
+      const inputInstrument = instrument.toLowerCase()
+      match = nameMatches.find(student => 
+        student.instrument.toLowerCase() === inputInstrument
+      )
+      
+      // If no instrument match found among name matches, director will need to assign
+      if (!match) {
+        match = null // Forces manual review by director
+      }
+    }
 
     if (match) {
       // Check if this student is already claimed by another parent
