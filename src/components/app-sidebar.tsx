@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Calendar, CreditCard, FileText, LogIn, LogOut } from "lucide-react"
+import { Calendar, CreditCard, FileText, LogIn, LogOut, LayoutDashboard } from "lucide-react"
 import { useSession, signOut } from "@/lib/auth-client"
 
 import {
@@ -26,6 +26,11 @@ const data = {
     {
       title: "Band Program",
       items: [
+        {
+          title: "Dashboard",
+          url: "/dashboard",
+          icon: LayoutDashboard,
+        },
         {
           title: "Payments",
           url: "/payments",

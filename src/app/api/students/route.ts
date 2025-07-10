@@ -13,11 +13,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch parent's students
+    // Fetch parent's students (exclude rejected ones)
     const studentParents = await prisma.studentParent.findMany({
       where: {
         userId: session.user.id,
-        deletedAt: null
+        deletedAt: null,
+        status: {
+          not: 'REJECTED'
+        }
       },
       include: {
         student: true
