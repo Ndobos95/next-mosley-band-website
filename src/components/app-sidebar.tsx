@@ -1,5 +1,9 @@
+"use client"
+
 import * as React from "react"
-import { Calendar, CreditCard, FileText, LogIn } from "lucide-react"
+import Link from "next/link"
+import { Calendar, CreditCard, FileText, LogIn, LogOut } from "lucide-react"
+import { useSession, signOut } from "@/lib/auth-client"
 
 import {
   Sidebar,
@@ -43,6 +47,17 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { data: session } = useSession()
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      // No page reload needed - better-auth handles this gracefully
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
   return (
     <Sidebar {...props}>
       <SidebarHeader>
@@ -57,10 +72,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 {item.items.map((menuItem) => (
                   <SidebarMenuItem key={menuItem.title}>
                     <SidebarMenuButton asChild>
-                      <a href={menuItem.url}>
+                      <Link href={menuItem.url}>
                         <menuItem.icon />
                         <span>{menuItem.title}</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -70,12 +85,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
       </SidebarContent>
       <SidebarFooter>
-        <Button variant="outline" className="w-full justify-start" asChild>
-          <a href="/login">
-            <LogIn className="mr-2 h-4 w-4" />
-            Login
-          </a>
-        </Button>
+        {session?.user ? (
+          <Button 
+            variant="outline" 
+            className="w-full justify-start"
+            onClick={handleLogout}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </Button>
+        ) : (
+          <Button variant="outline" className="w-full justify-start" asChild>
+            <Link href="/login">
+              <LogIn className="mr-2 h-4 w-4" />
+              Login
+            </Link>
+          </Button>
+        )}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
