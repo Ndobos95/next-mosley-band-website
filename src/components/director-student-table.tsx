@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, User, Music, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { LinkStudentDialog } from "@/components/link-student-dialog"
 
 interface StudentWithParent {
   id: string
@@ -235,6 +236,14 @@ export function DirectorStudentTable() {
                   <TableCell>
                     {student.status === 'PENDING' && student.relationshipId && (
                       <div className="flex gap-2">
+                        {student.source === 'PARENT_REGISTRATION' && (
+                          <LinkStudentDialog
+                            parentName={student.parentName || 'Unknown Parent'}
+                            studentName={student.name}
+                            relationshipId={student.relationshipId}
+                            onSuccess={fetchStudents}
+                          />
+                        )}
                         <Button
                           size="sm"
                           onClick={() => handleApproveStudent(student.relationshipId!)}
