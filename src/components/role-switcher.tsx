@@ -29,8 +29,7 @@ export function RoleSwitcher({ currentRole, onRoleChange }: RoleSwitcherProps) {
 
       if (response.ok) {
         onRoleChange(newRole)
-        // Force a page reload to update the session
-        window.location.reload()
+        // Role changed successfully, no page reload needed
       } else {
         const error = await response.json()
         console.error('Error updating role:', error)
