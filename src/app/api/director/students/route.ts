@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
         id: student.id,
         name: student.name,
         instrument: student.instrument,
+        source: student.source,
         parentName: parentRelationship?.user.name || null,
         parentEmail: parentRelationship?.user.email || null,
         status: parentRelationship ? parentRelationship.status : 'UNCLAIMED',

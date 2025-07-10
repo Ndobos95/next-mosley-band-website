@@ -78,7 +78,30 @@ export async function POST(request: NextRequest) {
         }
       })
     } else {
-      // No match found - needs director review
+      // No match found - create new student and pending relationship
+      const newStudent = await prisma.student.create({
+        data: {
+          name: name.trim(),
+          instrument: instrument.trim(),
+          source: 'PARENT_REGISTRATION'
+        }
+      })
+
+      await prisma.studentParent.create({
+        data: {
+          userId: session.user.id,
+          studentId: newStudent.id,
+          status: 'PENDING'
+        }
+      })
+
+      console.log('Created new student for parent registration:', {
+        studentId: newStudent.id,
+        studentName: newStudent.name,
+        parentName: session.user.name,
+        status: 'PENDING'
+      })
+
       return NextResponse.json({
         success: false,
         status: 'pending',

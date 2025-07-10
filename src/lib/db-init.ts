@@ -83,7 +83,12 @@ export async function initializeDatabase() {
       ]
 
       for (const student of rosterStudents) {
-        await prisma.student.create({ data: student })
+        await prisma.student.create({ 
+          data: {
+            ...student,
+            source: 'ROSTER'
+          }
+        })
       }
       console.log(`✅ Seeded ${rosterStudents.length} roster students`)
     }

@@ -19,9 +19,10 @@ interface StudentWithParent {
   id: string
   name: string
   instrument: string
+  source: 'ROSTER' | 'PARENT_REGISTRATION' | 'MANUAL'
   parentName?: string
   parentEmail?: string
-  status: 'PENDING' | 'ACTIVE' | 'UNCLAIMED'
+  status: 'PENDING' | 'ACTIVE' | 'UNCLAIMED' | 'REJECTED'
   relationshipId?: string
   createdAt?: string
 }
@@ -56,13 +57,43 @@ export function DirectorStudentTable() {
   }, [])
 
   const handleApproveStudent = async (relationshipId: string) => {
-    // TODO: Implement approve API call
-    console.log('Approve student relationship:', relationshipId)
+    try {
+      const response = await fetch(`/api/director/students/${relationshipId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve' })
+      })
+
+      if (response.ok) {
+        console.log('Successfully approved student')
+        fetchStudents() // Refresh the list
+      } else {
+        const error = await response.json()
+        console.error('Failed to approve student:', error)
+      }
+    } catch (error) {
+      console.error('Error approving student:', error)
+    }
   }
 
   const handleRejectStudent = async (relationshipId: string) => {
-    // TODO: Implement reject API call
-    console.log('Reject student relationship:', relationshipId)
+    try {
+      const response = await fetch(`/api/director/students/${relationshipId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject' })
+      })
+
+      if (response.ok) {
+        console.log('Successfully rejected student')
+        fetchStudents() // Refresh the list
+      } else {
+        const error = await response.json()
+        console.error('Failed to reject student:', error)
+      }
+    } catch (error) {
+      console.error('Error rejecting student:', error)
+    }
   }
 
   const getStatusIcon = (status: string) => {
@@ -71,6 +102,8 @@ export function DirectorStudentTable() {
         return <CheckCircle className="h-4 w-4 text-green-600" />
       case 'PENDING':
         return <Clock className="h-4 w-4 text-yellow-600" />
+      case 'REJECTED':
+        return <AlertCircle className="h-4 w-4 text-red-600" />
       case 'UNCLAIMED':
         return <AlertCircle className="h-4 w-4 text-gray-400" />
       default:
@@ -84,8 +117,23 @@ export function DirectorStudentTable() {
         return <Badge variant="default">Active</Badge>
       case 'PENDING':
         return <Badge variant="secondary">Pending</Badge>
+      case 'REJECTED':
+        return <Badge variant="destructive">Rejected</Badge>
       case 'UNCLAIMED':
         return <Badge variant="outline">Unclaimed</Badge>
+      default:
+        return null
+    }
+  }
+
+  const getSourceBadge = (source: string) => {
+    switch (source) {
+      case 'ROSTER':
+        return <Badge variant="default" className="text-xs">Official</Badge>
+      case 'PARENT_REGISTRATION':
+        return <Badge variant="secondary" className="text-xs">Parent Input</Badge>
+      case 'MANUAL':
+        return <Badge variant="outline" className="text-xs">Manual</Badge>
       default:
         return null
     }
@@ -142,6 +190,7 @@ export function DirectorStudentTable() {
               <TableRow>
                 <TableHead>Student</TableHead>
                 <TableHead>Instrument</TableHead>
+                <TableHead>Source</TableHead>
                 <TableHead>Parent</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -161,6 +210,9 @@ export function DirectorStudentTable() {
                       <Music className="h-4 w-4 text-muted-foreground" />
                       <span>{student.instrument}</span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {getSourceBadge(student.source)}
                   </TableCell>
                   <TableCell>
                     {student.parentName ? (

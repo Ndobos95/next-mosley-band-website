@@ -35,7 +35,8 @@ async function main() {
     await prisma.student.create({
       data: {
         name: student.name,
-        instrument: student.instrument
+        instrument: student.instrument,
+        source: 'ROSTER'
       }
     })
   }

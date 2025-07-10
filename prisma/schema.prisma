@@ -83,6 +83,7 @@ model Student {
   name       String
   instrument String
   grade      String?
+  source     StudentSource   @default(ROSTER)
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
   
@@ -107,6 +108,13 @@ model StudentParent {
 enum StudentStatus {
   PENDING
   ACTIVE
+  REJECTED
+}
+
+enum StudentSource {
+  ROSTER
+  PARENT_REGISTRATION
+  MANUAL
 }
 
 // Test data
