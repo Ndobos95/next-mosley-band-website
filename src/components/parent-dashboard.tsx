@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AddStudentForm } from "@/components/add-student-form"
 import { StudentCards } from "@/components/student-cards"
+import { PaymentHistory } from "@/components/payment-history"
 
 interface ParentDashboardProps {
   user: {
@@ -38,6 +39,8 @@ export function ParentDashboard({ user }: ParentDashboardProps) {
         <AddStudentForm onStudentAdded={handleStudentAdded} />
         <StudentCards refreshTrigger={refreshTrigger} />
       </div>
+      
+      <PaymentHistory refreshTrigger={refreshTrigger} />
       
       <Card>
         <CardHeader>

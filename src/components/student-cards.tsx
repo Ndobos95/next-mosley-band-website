@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { Trash2, User, Music, Loader2, DollarSign, Plus } from "lucide-react"
+import { Trash2, User, Music, Loader2, DollarSign, Plus, CreditCard } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { PAYMENT_CATEGORIES, type StudentEnrollments, type PaymentCategory } from "@/types/stripe"
 
@@ -123,6 +123,36 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
 
   const formatMoney = (cents: number) => {
     return `$${(cents / 100).toFixed(2)}`
+  }
+
+  const handlePayment = async (studentId: string, studentName: string, category: PaymentCategory, incrementCount: number = 1) => {
+    const loadingKey = `${studentId}-${category}-payment`
+    setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: true }))
+    
+    try {
+      const response = await fetch('/api/payments/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          studentId, 
+          category, 
+          incrementCount 
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url
+      } else {
+        console.error('Failed to create checkout session:', data.error)
+      }
+    } catch (error) {
+      console.error('Failed to initiate payment:', error)
+    } finally {
+      setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: false }))
+    }
   }
 
   if (loading) {
@@ -279,12 +309,80 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
                               </div>
                               
                               {isEnrolled && (
-                                <div className="space-y-1">
+                                <div className="space-y-2">
                                   <div className="flex justify-between text-xs">
                                     <span>Paid: {formatMoney(amountPaid)}</span>
                                     <span>Remaining: {formatMoney(totalOwed - amountPaid)}</span>
                                   </div>
                                   <Progress value={progress} className="h-2" />
+                                  
+                                  {/* Payment buttons for enrolled categories */}
+                                  {amountPaid < totalOwed && (
+                                    <div className="flex items-center justify-between pt-2">
+                                      <div className="text-xs text-muted-foreground">
+                                        {categoryConfig.increment < categoryConfig.totalAmount 
+                                          ? `Pay in ${formatMoney(categoryConfig.increment)} increments`
+                                          : 'Pay in full'
+                                        }
+                                      </div>
+                                      <div className="flex space-x-1">
+                                        {/* Single increment payment button */}
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handlePayment(student.id, student.name, category, 1)}
+                                          disabled={enrollmentLoading[`${student.id}-${category}-payment`]}
+                                          className="h-6 px-2 text-xs"
+                                        >
+                                          {enrollmentLoading[`${student.id}-${category}-payment`] ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <>
+                                              <CreditCard className="h-3 w-3 mr-1" />
+                                              {formatMoney(categoryConfig.increment)}
+                                            </>
+                                          )}
+                                        </Button>
+                                        
+                                        {/* Multiple increment payment button (for Spring Trip) */}
+                                        {category === 'SPRING_TRIP' && (totalOwed - amountPaid) >= (categoryConfig.increment * 4) && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handlePayment(student.id, student.name, category, 4)}
+                                            disabled={enrollmentLoading[`${student.id}-${category}-payment`]}
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            {formatMoney(categoryConfig.increment * 4)}
+                                          </Button>
+                                        )}
+                                        
+                                        {/* Pay remaining balance button */}
+                                        {(totalOwed - amountPaid) > categoryConfig.increment && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                              const remainingIncrements = Math.ceil((totalOwed - amountPaid) / categoryConfig.increment)
+                                              handlePayment(student.id, student.name, category, remainingIncrements)
+                                            }}
+                                            disabled={enrollmentLoading[`${student.id}-${category}-payment`]}
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            Pay All
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Paid in full message */}
+                                  {amountPaid >= totalOwed && (
+                                    <div className="flex items-center justify-center py-1">
+                                      <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                                        ✓ Paid in Full
+                                      </Badge>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>

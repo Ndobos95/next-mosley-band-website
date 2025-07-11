@@ -117,11 +117,16 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
     }
     
     // 2. Fetch ALL customer data from Stripe API
-    const [customer, paymentIntents] = await Promise.all([
+    // Note: Checkout sessions create payment intents with metadata, so we should get those
+    const [customer, paymentIntents, checkoutSessions] = await Promise.all([
       stripe.customers.retrieve(user.stripeCustomerId),
       stripe.paymentIntents.list({
         customer: user.stripeCustomerId,
-        limit: 100 // Adjust as needed
+        limit: 100
+      }),
+      stripe.checkout.sessions.list({
+        customer: user.stripeCustomerId,
+        limit: 100 // Get checkout sessions to access their metadata
       })
     ]);
     
@@ -130,20 +135,34 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
       return null;
     }
     
-    // 3. Transform payment data into our format
-    const payments: StripePaymentData[] = paymentIntents.data.map(pi => ({
-      id: pi.id,
-      amount: pi.amount,
-      status: pi.status as StripePaymentData['status'],
-      created: pi.created,
-      description: pi.description || '',
-      metadata: {
-        studentName: pi.metadata.studentName,
-        category: pi.metadata.category as StripePaymentData['metadata']['category'],
-        increment: pi.metadata.increment,
-        notes: pi.metadata.notes
+    // 3. Transform payment data - need to merge checkout session metadata with payment intents
+    // Create a map of payment intent ID to checkout session metadata
+    const sessionMetadataMap = new Map();
+    checkoutSessions.data.forEach(session => {
+      if (session.payment_intent && session.metadata) {
+        sessionMetadataMap.set(session.payment_intent, session.metadata);
       }
-    }));
+    });
+
+    // Transform payment intents, using checkout session metadata when available
+    const payments: StripePaymentData[] = paymentIntents.data.map(pi => {
+      // Use checkout session metadata if available, otherwise use payment intent metadata
+      const metadata = sessionMetadataMap.get(pi.id) || pi.metadata || {};
+      
+      return {
+        id: pi.id,
+        amount: pi.amount,
+        status: pi.status as StripePaymentData['status'],
+        created: pi.created,
+        description: pi.description || '',
+        metadata: {
+          studentName: metadata.studentName,
+          category: metadata.category as StripePaymentData['metadata']['category'],
+          increment: metadata.increment,
+          notes: metadata.notes
+        }
+      };
+    });
     
     // 4. Calculate totals by category
     const totals: PaymentTotals = {
