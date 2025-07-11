@@ -2,7 +2,8 @@
 
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
-import type { StripeCustomerCache, PaymentTotals, StripePaymentData } from '@/types/stripe';
+import type { StripeCustomerCache, PaymentTotals, StripePaymentData, StudentEnrollments, PaymentCategory } from '@/types/stripe';
+import { PAYMENT_CATEGORIES } from '@/types/stripe';
 
 /**
  * Get user's Stripe cache data (single source of truth)
@@ -171,15 +172,19 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
       }
     });
     
-    // 5. Create cache data structure
+    // 5. Parse enrollments from customer metadata
+    const enrollments = parseEnrollmentsFromMetadata(customer.metadata || {});
+    
+    // 6. Create cache data structure
     const cacheData: StripeCustomerCache = {
       customerId: user.stripeCustomerId,
       payments,
       totals,
+      enrollments,
       lastSync: new Date().toISOString()
     };
     
-    // 6. Upsert to StripeCache table (single source of truth)
+    // 7. Upsert to StripeCache table (single source of truth)
     await prisma.stripeCache.upsert({
       where: { userId },
       update: {
@@ -199,5 +204,159 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
   } catch (error) {
     console.error(`❌ Failed to sync Stripe data for user ${userId}:`, error);
     return null;
+  }
+}
+
+/**
+ * Parse enrollment data from Stripe customer metadata
+ */
+function parseEnrollmentsFromMetadata(metadata: Record<string, string>): StudentEnrollments {
+  try {
+    const enrollmentsJson = metadata.enrollments;
+    if (!enrollmentsJson) return {};
+    
+    return JSON.parse(enrollmentsJson) as StudentEnrollments;
+  } catch (error) {
+    console.error('Failed to parse enrollments from metadata:', error);
+    return {};
+  }
+}
+
+/**
+ * Helper to get enrollment data for a user
+ */
+export async function getUserEnrollments(userId: string): Promise<StudentEnrollments> {
+  const stripeData = await getUserStripeData(userId);
+  return stripeData?.enrollments ?? {};
+}
+
+/**
+ * Enroll a student in a payment category
+ */
+export async function enrollStudentInCategory(
+  userId: string,
+  studentId: string,
+  studentName: string,
+  category: PaymentCategory
+): Promise<boolean> {
+  try {
+    // Get user and their Stripe customer ID
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user) {
+      console.error(`User ${userId} not found`);
+      return false;
+    }
+    
+    // Create Stripe customer if they don't have one
+    let stripeCustomerId = user.stripeCustomerId;
+    if (!stripeCustomerId) {
+      stripeCustomerId = await createStripeCustomerForUser(userId);
+      if (!stripeCustomerId) {
+        console.error(`Failed to create Stripe customer for user ${userId}`);
+        return false;
+      }
+    }
+    
+    // Get current enrollments
+    const currentEnrollments = await getUserEnrollments(userId);
+    
+    // Check if already enrolled
+    if (currentEnrollments[studentId]?.categories[category]?.enrolled) {
+      console.log(`Student ${studentName} already enrolled in ${category}`);
+      return true; // Already enrolled, consider it success
+    }
+    
+    // Update enrollments
+    const updatedEnrollments = { ...currentEnrollments };
+    
+    if (!updatedEnrollments[studentId]) {
+      updatedEnrollments[studentId] = {
+        studentId,
+        studentName,
+        categories: {}
+      };
+    }
+    
+    // Add enrollment for this category
+    const categoryConfig = PAYMENT_CATEGORIES[category];
+    updatedEnrollments[studentId].categories[category] = {
+      enrolled: true,
+      enrolledAt: new Date().toISOString(),
+      totalOwed: categoryConfig.totalAmount,
+      amountPaid: 0
+    };
+    
+    // Update Stripe customer metadata
+    await stripe.customers.update(stripeCustomerId, {
+      metadata: {
+        enrollments: JSON.stringify(updatedEnrollments)
+      }
+    });
+    
+    // Sync the updated data
+    await syncStripeDataToUser(userId);
+    
+    console.log(`✅ Enrolled student ${studentName} in ${category} for user ${userId}`);
+    return true;
+    
+  } catch (error) {
+    console.error(`❌ Failed to enroll student in category:`, error);
+    return false;
+  }
+}
+
+/**
+ * Unenroll a student from a payment category
+ */
+export async function unenrollStudentFromCategory(
+  userId: string,
+  studentId: string,
+  category: PaymentCategory
+): Promise<boolean> {
+  try {
+    // Get user and their Stripe customer ID
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || !user.stripeCustomerId) {
+      console.error(`User ${userId} has no Stripe customer ID`);
+      return false;
+    }
+    
+    // Get current enrollments
+    const currentEnrollments = await getUserEnrollments(userId);
+    
+    // Update enrollments
+    const updatedEnrollments = { ...currentEnrollments };
+    
+    if (updatedEnrollments[studentId]?.categories[category]) {
+      delete updatedEnrollments[studentId].categories[category];
+      
+      // If no categories remain, remove the student entirely
+      if (Object.keys(updatedEnrollments[studentId].categories).length === 0) {
+        delete updatedEnrollments[studentId];
+      }
+    }
+    
+    // Update Stripe customer metadata
+    await stripe.customers.update(user.stripeCustomerId, {
+      metadata: {
+        enrollments: JSON.stringify(updatedEnrollments)
+      }
+    });
+    
+    // Sync the updated data
+    await syncStripeDataToUser(userId);
+    
+    console.log(`✅ Unenrolled student from ${category} for user ${userId}`);
+    return true;
+    
+  } catch (error) {
+    console.error(`❌ Failed to unenroll student from category:`, error);
+    return false;
   }
 }

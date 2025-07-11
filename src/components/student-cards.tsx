@@ -4,8 +4,11 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, User, Music, Loader2 } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import { Separator } from "@/components/ui/separator"
+import { Trash2, User, Music, Loader2, DollarSign, Plus } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { PAYMENT_CATEGORIES, type StudentEnrollments, type PaymentCategory } from "@/types/stripe"
 
 interface Student {
   id: string
@@ -22,7 +25,9 @@ interface StudentCardsProps {
 
 export function StudentCards({ refreshTrigger }: StudentCardsProps) {
   const [students, setStudents] = useState<Student[]>([])
+  const [enrollments, setEnrollments] = useState<StudentEnrollments>({})
   const [loading, setLoading] = useState(true)
+  const [enrollmentLoading, setEnrollmentLoading] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
 
   const fetchStudents = async () => {
@@ -30,16 +35,26 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/students')
-      const data = await response.json()
+      const [studentsResponse, enrollmentsResponse] = await Promise.all([
+        fetch('/api/students'),
+        fetch('/api/payments/enrollments')
+      ])
+      
+      const studentsData = await studentsResponse.json()
+      const enrollmentsData = await enrollmentsResponse.json()
 
-      if (response.ok) {
-        setStudents(data.students)
+      if (studentsResponse.ok) {
+        setStudents(studentsData.students)
       } else {
-        setError(data.error || 'Failed to fetch students')
+        setError(studentsData.error || 'Failed to fetch students')
       }
+      
+      if (enrollmentsResponse.ok) {
+        setEnrollments(enrollmentsData.enrollments)
+      }
+      
     } catch {
-      setError('Failed to fetch students')
+      setError('Failed to fetch data')
     } finally {
       setLoading(false)
     }
@@ -52,6 +67,62 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
   const handleDeleteStudent = async (relationshipId: string) => {
     // TODO: Implement soft delete API endpoint
     console.log('Delete student relationship:', relationshipId)
+  }
+
+  const handleEnroll = async (studentId: string, category: PaymentCategory) => {
+    const loadingKey = `${studentId}-${category}`
+    setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: true }))
+    
+    try {
+      const response = await fetch('/api/payments/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, category })
+      })
+      
+      if (response.ok) {
+        // Refresh enrollments
+        const enrollmentsResponse = await fetch('/api/payments/enrollments')
+        if (enrollmentsResponse.ok) {
+          const enrollmentsData = await enrollmentsResponse.json()
+          setEnrollments(enrollmentsData.enrollments)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to enroll student:', error)
+    } finally {
+      setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: false }))
+    }
+  }
+
+  const handleUnenroll = async (studentId: string, category: PaymentCategory) => {
+    const loadingKey = `${studentId}-${category}`
+    setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: true }))
+    
+    try {
+      const response = await fetch('/api/payments/enroll', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, category })
+      })
+      
+      if (response.ok) {
+        // Refresh enrollments
+        const enrollmentsResponse = await fetch('/api/payments/enrollments')
+        if (enrollmentsResponse.ok) {
+          const enrollmentsData = await enrollmentsResponse.json()
+          setEnrollments(enrollmentsData.enrollments)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to unenroll student:', error)
+    } finally {
+      setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: false }))
+    }
+  }
+
+  const formatMoney = (cents: number) => {
+    return `$${(cents / 100).toFixed(2)}`
   }
 
   if (loading) {
@@ -108,38 +179,135 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
         <CardTitle>Your Students</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {students.map((student) => (
-            <div
-              key={student.relationshipId}
-              className="flex items-center justify-between p-3 border rounded-lg bg-card"
-            >
-              <div className="flex items-center space-x-3">
-                <User className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">{student.name}</p>
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Music className="h-4 w-4" />
-                    <span>{student.instrument}</span>
+        <div className="space-y-4">
+          {students.map((student) => {
+            const studentEnrollment = enrollments[student.id]
+            
+            return (
+              <Card key={student.relationshipId} className="border-l-4 border-l-blue-500">
+                <CardContent className="p-4">
+                  {/* Student Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{student.name}</p>
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <Music className="h-4 w-4" />
+                          <span>{student.instrument}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={student.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                        {student.status === 'ACTIVE' ? 'Active' : 'Pending'}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteStudent(student.relationshipId)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Badge variant={student.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                  {student.status === 'ACTIVE' ? 'Active' : 'Pending'}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteStudent(student.relationshipId)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
+
+                  {/* Payment Categories Section */}
+                  {student.status === 'ACTIVE' && (
+                    <>
+                      <Separator className="mb-4" />
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+                          <DollarSign className="h-4 w-4" />
+                          <span>Payment Categories</span>
+                        </div>
+                        
+                        {Object.entries(PAYMENT_CATEGORIES).map(([categoryKey, categoryConfig]) => {
+                          const category = categoryKey as PaymentCategory
+                          const enrollment = studentEnrollment?.categories?.[category]
+                          const isEnrolled = enrollment?.enrolled ?? false
+                          const amountPaid = enrollment?.amountPaid ?? 0
+                          const totalOwed = enrollment?.totalOwed ?? categoryConfig.totalAmount
+                          const progress = totalOwed > 0 ? (amountPaid / totalOwed) * 100 : 0
+                          const loadingKey = `${student.id}-${category}`
+                          const isLoading = enrollmentLoading[loadingKey] ?? false
+                          
+                          return (
+                            <div key={category} className="space-y-2 p-3 border rounded bg-muted/30">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-sm">{categoryConfig.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatMoney(categoryConfig.totalAmount)} total
+                                    {categoryConfig.increment < categoryConfig.totalAmount && 
+                                      ` • ${formatMoney(categoryConfig.increment)} increments`
+                                    }
+                                  </p>
+                                </div>
+                                
+                                <div className="flex items-center space-x-2">
+                                  {isEnrolled ? (
+                                    <>
+                                      <Badge variant="default" className="text-xs">Enrolled</Badge>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleUnenroll(student.id, category)}
+                                        disabled={isLoading}
+                                        className="h-7 px-2 text-xs"
+                                      >
+                                        {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Unenroll'}
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Badge variant="secondary" className="text-xs">Not Enrolled</Badge>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleEnroll(student.id, category)}
+                                        disabled={isLoading}
+                                        className="h-7 px-2 text-xs"
+                                      >
+                                        {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+                                        {isLoading ? '' : 'Enroll'}
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {isEnrolled && (
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-xs">
+                                    <span>Paid: {formatMoney(amountPaid)}</span>
+                                    <span>Remaining: {formatMoney(totalOwed - amountPaid)}</span>
+                                  </div>
+                                  <Progress value={progress} className="h-2" />
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                  
+                  {student.status === 'PENDING' && (
+                    <>
+                      <Separator className="mb-4" />
+                      <Alert className="border-yellow-200 bg-yellow-50">
+                        <AlertDescription className="text-yellow-800 text-sm">
+                          Payment enrollment will be available once your student is approved by the director.
+                        </AlertDescription>
+                      </Alert>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
         
         {students.some(s => s.status === 'PENDING') && (

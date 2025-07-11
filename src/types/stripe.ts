@@ -4,6 +4,7 @@ export interface StripeCustomerCache {
   customerId: string;
   payments: StripePaymentData[];
   totals: PaymentTotals;
+  enrollments: StudentEnrollments;
   lastSync: string;
 }
 
@@ -26,6 +27,35 @@ export interface PaymentTotals {
   tripPaid: number;     // in cents  
   equipmentPaid: number; // in cents
   donationsPaid: number; // in cents
+}
+
+// Student enrollment tracking interfaces
+export interface StudentEnrollment {
+  studentId: string;
+  studentName: string;
+  categories: {
+    [K in PaymentCategory]?: {
+      enrolled: boolean;
+      enrolledAt: string; // ISO timestamp
+      totalOwed: number; // in cents
+      amountPaid: number; // in cents
+    };
+  };
+}
+
+export interface StudentEnrollments {
+  [studentId: string]: StudentEnrollment;
+}
+
+export interface EnrollmentRequest {
+  studentId: string;
+  category: PaymentCategory;
+}
+
+export interface EnrollmentResponse {
+  success: boolean;
+  enrollment?: StudentEnrollment;
+  error?: string;
 }
 
 // Payment categories configuration (hardcoded as per requirements)
