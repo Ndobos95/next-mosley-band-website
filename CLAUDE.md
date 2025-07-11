@@ -17,11 +17,15 @@
 - **Real-time feedback**: "Match found!" or "Manual verification needed"
 - **Director review**: Dashboard for unmatched registrations with manual linking
 
-### Payment System Design
-- **Self-selection**: Parents choose activity categories for their student
-- **Partial payments**: Configurable per-category (Band Fees = 100%, Trip Payment = partial allowed)
-- **Per-student tracking**: Individual payment history and status
-- **Multi-student support**: Parents can manage multiple children
+### Payment System Design (t3dotgg Pattern)
+- **t3dotgg Architecture**: Single source of truth with `syncStripeDataToUser()` function - no complex webhook state management
+- **Stripe Checkout Sessions**: Pre-created customer IDs, hosted payment pages for PCI compliance
+- **Two-step flow**: Parents enroll students in categories first, then make payments in configured increments
+- **Payment increments**: Band Fees ($250 full), Spring Trip ($900 in $50 increments), Equipment ($150 in $25 increments)
+- **Guest checkout support**: Non-authenticated users can make payments with strict student name matching
+- **Ghost accounts**: Automatic account creation for unmatched payments, convertible to real accounts
+- **Notes system**: Optional notes for student payments, required notes for donations
+- **General Fund**: Special student record for handling donations and arbitrary contributions
 
 ### Configuration Approach
 - **File-based only**: JSON configuration for white-label customization
@@ -58,15 +62,35 @@
 ### Parent Workflow
 1. Register with student legal name and instrument
 2. Get immediate feedback on student matching
-3. Select payment categories for activities student participates in
-4. Make full or partial payments based on category rules
-5. View/download files and subscribe to calendar
+3. Enroll students in payment categories (Band Fees, Spring Trip, Equipment)
+4. Make payments in configured increments toward enrolled categories
+5. View payment history and outstanding balances per student
+6. View/download files and subscribe to calendar
+
+### Guest Payment Workflow
+1. Enter parent name, email, student name, and payment details
+2. System performs strict student name matching against roster
+3. If matched: process payment and link to student record
+4. If unmatched: create unmatched payment for booster review
+5. Receive payment confirmation email
+
+### Booster Review Workflow
+1. Review unmatched payments in dashboard
+2. Search for correct student matches
+3. Create ghost accounts for parents without existing accounts
+4. Link payments to correct student records
+5. Add resolution notes for audit trail
 
 ## Database Schema Priorities
-- user_students (parent-student relationships)
-- payments (Stripe tracking with per-student categorization)
-- students (roster with fuzzy matching fields)
-- payment_categories (configurable with partial payment flags)
+- users (with stripe_customer_id and isGhostAccount flag)
+- students (roster with fuzzy matching fields, includes special "General Fund" student)
+- student_parent (parent-student relationships with status tracking)
+- payment_categories (hardcoded: Band Fees, Spring Trip, Equipment with increment rules)
+- student_payment_enrollments (tracks total_owed vs amount_paid per student/category)
+- payments (individual payment records with optional notes)
+- guest_payments (non-authenticated payments with optional notes)
+- donations (General Fund payments with required notes)
+- unmatched_payments (for booster review with resolution notes)
 - files (metadata with category and deprecation status)
 
 ## White-Label Requirements
@@ -174,12 +198,26 @@
 4. **✅ Create student management** views for director with approve/reject functionality
 5. **✅ Implement automatic seeding** of student roster in Docker and development
 
-### Phase 4: Payment System 🔄 PENDING
-1. **🔄 Integrate Stripe** with webhook handling
-2. **🔄 Create configurable payment categories** (generic: Band Fees, Trip Payment, Equipment)
-3. **🔄 Build parent self-selection** system for payment categories
-4. **🔄 Add partial payment support** with per-category configuration (some 100%, some partial)
-5. **🔄 Create payment history** and tracking per student
+### Phase 4: Payment System 🚧 IN PROGRESS
+**Implementation Strategy: t3dotgg Pattern with Stripe Checkout Sessions**
+
+1. **🔄 Database schema updates** - Add payment tables with t3dotgg architecture
+2. **🔄 Stripe customer creation** - Pre-create customers on user registration  
+3. **🔄 Payment category enrollment** - Two-step flow: enroll first, pay later
+4. **🔄 Stripe Checkout integration** - Hosted payment pages with incremental payment support
+5. **🔄 t3dotgg sync function** - Single source of truth for payment state management
+6. **🔄 Webhook handler** - Simple routing to sync functions based on payment type
+7. **🔄 Guest checkout system** - Non-authenticated payments with student matching
+8. **🔄 Ghost account creation** - Automatic account creation for unmatched payments
+9. **🔄 Booster review dashboard** - Manual resolution of unmatched payments
+10. **🔄 Donation system** - General Fund integration with required notes
+
+**Key Technical Decisions:**
+- Use Stripe Checkout Sessions (not Payment Intents) for PCI compliance and simplicity
+- Hardcoded payment categories: Band Fees ($250 full), Spring Trip ($900 in $50 increments), Equipment ($150 in $25 increments)
+- Notes optional for student payments, required for donations
+- Ghost accounts auto-link siblings by last name matching
+- Webhook idempotency through database tracking, not complex state management
 
 ### Phase 5: File Management 🔄 PENDING
 1. **🔄 Create director file upload** system with "Forms" category
@@ -230,12 +268,41 @@
 - `/api/user/update-role` - Update user role for testing
 - `/api/auth/[...all]` - Better Auth endpoints
 
-**🚧 Immediate Next Tasks:**
-1. **Director Approval System** - Implement functionality for directors to approve/reject pending student registrations
-   - Add approve/reject API endpoints for director actions
-   - Update director table to handle approve/reject button functionality
-   - Create notification system for pending registrations
-   - Handle status updates (PENDING → ACTIVE or rejected/deleted)
+**🚧 Current Focus: Phase 4 - Payment System Implementation**
 
-**🎯 Next Priority: Phase 4 - Payment System**
-Ready to implement Stripe integration and configurable payment categories after completing director approval workflow.
+**Next Implementation Steps (t3dotgg Pattern):**
+1. **Database Schema Updates** - Add payment tables with t3dotgg architecture
+   - Add stripe_customer_id and isGhostAccount to users table
+   - Create payment_categories, student_payment_enrollments, payments tables
+   - Add guest_payments, donations, unmatched_payments tables
+   - Create special "General Fund" student record
+
+2. **Stripe Integration Foundation**
+   - Install Stripe dependencies (@stripe/stripe-js, stripe server SDK)
+   - Set up environment variables for Stripe keys and webhook secrets
+   - Implement customer creation on user registration
+   - Build core t3dotgg sync function architecture
+
+3. **Payment Category Enrollment System**
+   - Hardcode payment categories (Band Fees, Spring Trip, Equipment)
+   - Build enrollment interface for parents
+   - Implement payment increment validation
+   - Create enrollment tracking system
+
+4. **Stripe Checkout Integration**
+   - Build checkout session creation
+   - Implement webhook handler with t3dotgg routing
+   - Add payment confirmation and email receipts
+   - Create payment history dashboard
+
+5. **Guest Checkout & Manual Review**
+   - Build guest payment form with student matching
+   - Implement ghost account creation system
+   - Create booster review dashboard for unmatched payments
+   - Add donation system with General Fund integration
+
+**🎯 Long-term Goals:**
+- Complete payment system implementation using t3dotgg pattern
+- Build file management system
+- Integrate Google Calendar
+- Set up analytics and white-label configuration

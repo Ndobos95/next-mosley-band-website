@@ -12,18 +12,21 @@ datasource db {
 
 // Authentication tables for better-auth
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          UserRole  @default(PARENT)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  name             String?
+  email            String    @unique
+  emailVerified    Boolean   @default(false)
+  image            String?
+  role             UserRole  @default(PARENT)
+  stripeCustomerId String?   // Pre-created Stripe customer ID
+  isGuestAccount   Boolean   @default(false) // For unmatched guest payments
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
   
-  sessions      Session[]
-  accounts      Account[]
-  students      StudentParent[]
+  sessions         Session[]
+  accounts         Account[]
+  students         StudentParent[]
+  stripeCache      StripeCache?
 }
 
 model Session {
@@ -115,6 +118,16 @@ enum StudentSource {
   ROSTER
   PARENT_REGISTRATION
   MANUAL
+}
+
+// Stripe cache for t3dotgg pattern
+model StripeCache {
+  id        String   @id @default(cuid())
+  userId    String   @unique  // One cache record per user
+  data      Json     // All Stripe customer data as JSON
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Test data
