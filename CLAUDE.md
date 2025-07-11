@@ -198,15 +198,24 @@
 4. **✅ Create student management** views for director with approve/reject functionality
 5. **✅ Implement automatic seeding** of student roster in Docker and development
 
-### Phase 4: Payment System 🚧 IN PROGRESS
+### Phase 4: Payment System ✅ FOUNDATION COMPLETED
 **Implementation Strategy: t3dotgg Pattern with Stripe Checkout Sessions**
 
-1. **🔄 Database schema updates** - Add payment tables with t3dotgg architecture
-2. **🔄 Stripe customer creation** - Pre-create customers on user registration  
-3. **🔄 Payment category enrollment** - Two-step flow: enroll first, pay later
-4. **🔄 Stripe Checkout integration** - Hosted payment pages with incremental payment support
-5. **🔄 t3dotgg sync function** - Single source of truth for payment state management
-6. **🔄 Webhook handler** - Simple routing to sync functions based on payment type
+**📚 Reference: t3dotgg Stripe Recommendations**
+- **Source**: https://github.com/t3dotgg/stripe-recommendations
+- **Key Principle**: Single source of truth with `syncStripeDataToUser()` function
+- **Pattern**: Avoid complex webhook state management, use simple cache sync approach
+- **Architecture**: Pre-create Stripe customers, use Checkout Sessions, cache all data in one JSON blob per user
+
+**✅ COMPLETED - Tasks 1-3 (Foundation)**
+1. **✅ Database schema foundation** - Stripe fields added to User model (`stripeCustomerId`, `isGuestAccount`) + StripeCache table for t3dotgg pattern
+2. **✅ Stripe dependencies & environment** - Packages installed (`stripe`, `@stripe/stripe-js`), env vars configured, validation added to startup.ts  
+3. **✅ Core t3dotgg sync architecture** - Complete `syncStripeDataToUser()` function implemented, `createStripeCustomerForUser()` built, TypeScript interfaces defined
+
+**🚧 IN PROGRESS - Remaining Tasks 4-10**
+4. **🔄 Payment category enrollment system** - Two-step flow: enroll first, pay later with hardcoded categories (Band Fees $250, Spring Trip $900 in $50 increments, Equipment $150 in $25 increments)
+5. **🔄 Stripe Checkout integration** - Hosted payment pages with incremental payment support using Checkout Sessions (not Payment Intents)
+6. **🔄 Webhook handler** - Simple routing to sync functions based on payment type, webhook idempotency through database tracking
 7. **🔄 Guest checkout system** - Non-authenticated payments with student matching
 8. **🔄 Ghost account creation** - Automatic account creation for unmatched payments
 9. **🔄 Booster review dashboard** - Manual resolution of unmatched payments
@@ -306,3 +315,61 @@
 - Build file management system
 - Integrate Google Calendar
 - Set up analytics and white-label configuration
+
+## 🔧 CURRENT IMPLEMENTATION STATUS & NEXT STEPS
+
+### ✅ Successfully Completed (Tasks 1-3)
+
+**Technical Foundation:**
+- User model extended with `stripeCustomerId` and `isGuestAccount` fields
+- StripeCache table created with JSON data column for t3dotgg single source of truth
+- Stripe packages installed: `stripe` (server), `@stripe/stripe-js` (client)
+- Environment variables configured: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+
+**Key Files Created:**
+- `src/lib/stripe.ts` - Stripe server configuration with API version 2025-06-30.basil
+- `src/types/stripe.ts` - TypeScript interfaces (StripeCustomerCache, StripePaymentData, PaymentTotals, PAYMENT_CATEGORIES)
+- `src/lib/stripe-cache.ts` - Complete t3dotgg implementation with all functions
+
+**Core Functions Implemented:**
+- `syncStripeDataToUser(userId)` - Fetches ALL Stripe customer data, transforms to cache format, upserts to database
+- `createStripeCustomerForUser(userId)` - Creates Stripe customer on user registration, stores customer ID
+- `getUserStripeData()`, `getUserPaymentTotals()`, `getUserPaymentHistory()`, `getUserOutstandingBalances()` - Helper functions
+
+### 🎯 Next Implementation: Task 4 - Payment Category Enrollment System
+
+**Goal:** Build two-step payment flow (enroll first, pay later) with hardcoded categories
+
+**Hardcoded Payment Categories:**
+```typescript
+BAND_FEES: { totalAmount: 25000, increment: 25000 }     // $250 pay in full
+SPRING_TRIP: { totalAmount: 90000, increment: 5000 }    // $900 in $50 increments  
+EQUIPMENT: { totalAmount: 15000, increment: 2500 }      // $150 in $25 increments
+```
+
+**Implementation Steps for Task 4:**
+1. Create enrollment API endpoint `/api/payments/enroll` - Allow parents to enroll students in categories
+2. Add enrollment tracking to parent dashboard - Show enrolled categories and outstanding balances  
+3. Build enrollment UI components - Category selection with increment display
+4. Integrate with existing student management - Link enrollments to approved student-parent relationships
+5. Add database queries for enrollment status - Track total owed vs amount paid per student/category
+
+**Required Database Pattern:**
+- Use existing StripeCache for payment tracking (t3dotgg pattern)
+- Store enrollment metadata in user's Stripe customer metadata
+- Sync enrollment data through existing `syncStripeDataToUser()` function
+
+**Key Design Decisions:**
+- Enrollments stored in Stripe customer metadata (not separate DB table)
+- Payment tracking through StripeCache JSON blob (maintains t3dotgg pattern)
+- Two-step flow prevents accidental payments before enrollment confirmation
+- Parents can enroll multiple students in different categories independently
+
+### 🔄 Build Process Learned
+**Critical Success Factor:** Test `npm run build` after each incremental change to prevent accumulation of issues (especially with Better Auth + Stripe compatibility)
+
+### 📚 t3dotgg Reference Implementation
+- **Source:** https://github.com/t3dotgg/stripe-recommendations  
+- **Key Pattern:** Single `syncStripeDataToUser()` function as source of truth
+- **Architecture:** Pre-create customers, use Checkout Sessions, avoid complex webhook state management
+- **Cache Strategy:** One JSON blob per user containing all payment history and totals

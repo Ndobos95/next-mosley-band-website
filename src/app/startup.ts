@@ -11,6 +11,9 @@ console.log(`  RESEND_API_KEY: ${!!process.env.RESEND_API_KEY}`)
 console.log(`  FROM_EMAIL: ${!!process.env.FROM_EMAIL}`)
 console.log(`  GOOGLE_CLIENT_ID: ${!!process.env.GOOGLE_CLIENT_ID}`)
 console.log(`  GOOGLE_CLIENT_SECRET: ${!!process.env.GOOGLE_CLIENT_SECRET}`)
+console.log(`  STRIPE_SECRET_KEY: ${!!process.env.STRIPE_SECRET_KEY}`)
+console.log(`  STRIPE_WEBHOOK_SECRET: ${!!process.env.STRIPE_WEBHOOK_SECRET}`)
+console.log(`  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${!!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}`)
 
 // Initialize database on app startup (only in production with DATABASE_URL)
 if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
