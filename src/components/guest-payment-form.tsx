@@ -34,30 +34,9 @@ export function GuestPaymentForm({ categories }: GuestPaymentFormProps) {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [studentMatch, setStudentMatch] = useState<{found: boolean, message: string} | null>(null)
 
   const selectedCategory = categories.find(c => c.id === formData.categoryId)
 
-  const handleStudentNameChange = async (studentName: string) => {
-    setFormData(prev => ({ ...prev, studentName }))
-    
-    if (studentName.length >= 3) {
-      try {
-        const response = await fetch('/api/students/match', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentName })
-        })
-        
-        const result = await response.json()
-        setStudentMatch(result)
-      } catch (error) {
-        console.error('Error checking student match:', error)
-      }
-    } else {
-      setStudentMatch(null)
-    }
-  }
 
   const getPaymentAmountOptions = () => {
     if (!selectedCategory) return []
@@ -158,16 +137,10 @@ export function GuestPaymentForm({ categories }: GuestPaymentFormProps) {
             <Input
               id="studentName"
               value={formData.studentName}
-              onChange={(e) => handleStudentNameChange(e.target.value)}
+              onChange={(e) => setFormData(prev => ({ ...prev, studentName: e.target.value }))}
               placeholder="Enter student's full legal name"
               required
             />
-            {studentMatch && (
-              <Alert className={studentMatch.found ? "border-green-200 bg-green-50" : "border-yellow-200 bg-yellow-50"}>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{studentMatch.message}</AlertDescription>
-              </Alert>
-            )}
           </div>
 
           <div className="space-y-2">
