@@ -191,8 +191,37 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
       }
     });
     
-    // 5. Parse enrollments from customer metadata
-    const enrollments = parseEnrollmentsFromMetadata(customer.metadata || {});
+    // 5. Parse enrollments from customer metadata and update with payment totals
+    const baseEnrollments = parseEnrollmentsFromMetadata(customer.metadata || {});
+    
+    // Update amountPaid from actual payment totals
+    
+    const enrollments: StudentEnrollments = {};
+    for (const [studentId, studentData] of Object.entries(baseEnrollments)) {
+      enrollments[studentId] = {
+        ...studentData,
+        categories: {}
+      };
+      
+      for (const [category, categoryData] of Object.entries(studentData.categories)) {
+        // Calculate amount paid for THIS SPECIFIC student in THIS category
+        // Payment metadata stores the enum key (e.g., 'BAND_FEES'), not display name
+        
+        // Filter payments for this specific student and category
+        const studentPayments = payments.filter(payment => 
+          payment.status === 'succeeded' && 
+          payment.metadata.category === category &&
+          payment.metadata.studentName === studentData.studentName
+        );
+        
+        const amountPaid = studentPayments.reduce((sum, payment) => sum + payment.amount, 0);
+        
+        enrollments[studentId].categories[category as keyof typeof enrollments[string]['categories']] = {
+          ...categoryData,
+          amountPaid // Use calculated amount from student-specific payments
+        };
+      }
+    }
     
     // 6. Create cache data structure
     const cacheData: StripeCustomerCache = {

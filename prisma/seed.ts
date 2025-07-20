@@ -19,6 +19,37 @@ async function main() {
     })
   }
 
+  // Seed payment categories (as specified in CLAUDE.md)
+  const paymentCategories = [
+    {
+      name: "Band Fees",
+      description: "Annual band program fees",
+      fullAmount: 25000, // $250.00 in cents
+      allowIncrements: false,
+      incrementAmount: null
+    },
+    {
+      name: "Spring Trip",
+      description: "Annual spring trip costs",
+      fullAmount: 90000, // $900.00 in cents
+      allowIncrements: true,
+      incrementAmount: 5000 // $50.00 increments
+    },
+    {
+      name: "Equipment",
+      description: "Band equipment and supplies",
+      fullAmount: 15000, // $150.00 in cents
+      allowIncrements: true,
+      incrementAmount: 2500 // $25.00 increments
+    }
+  ]
+
+  for (const category of paymentCategories) {
+    await prisma.paymentCategory.create({
+      data: category
+    })
+  }
+
   // Seed director's roster (mock data for testing)
   const rosterStudents = [
     { name: "John Smith", instrument: "Trumpet" },
@@ -40,6 +71,15 @@ async function main() {
       }
     })
   }
+
+  // Create special "General Fund" student for donations
+  await prisma.student.create({
+    data: {
+      name: "General Fund",
+      instrument: "N/A",
+      source: 'MANUAL'
+    }
+  })
 
   console.log('Seeding completed.')
 }

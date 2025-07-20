@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { AddStudentForm } from "@/components/add-student-form"
 import { StudentCards } from "@/components/student-cards"
 import { PaymentHistory } from "@/components/payment-history"
@@ -17,10 +18,68 @@ interface ParentDashboardProps {
 
 export function ParentDashboard({ user }: ParentDashboardProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [isFixingCustomer, setIsFixingCustomer] = useState(false)
+  
+  // Auto-sync when user returns to the tab (e.g., after Stripe checkout)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('📱 Tab became visible, syncing payment data...')
+        setRefreshTrigger(prev => prev + 1)
+      }
+    }
+    
+    const handleFocus = () => {
+      console.log('🔍 Window focused, syncing payment data...')
+      setRefreshTrigger(prev => prev + 1)
+    }
+
+    // Sync when user returns to tab or window
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    
+    // Also sync periodically (every 30 seconds) while tab is active
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        console.log('⏰ Periodic sync: checking for payment updates...')
+        setRefreshTrigger(prev => prev + 1)
+      }
+    }, 30000)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+      clearInterval(interval)
+    }
+  }, [])
   
   const handleStudentAdded = () => {
     // Trigger refresh of student list
     setRefreshTrigger(prev => prev + 1)
+  }
+
+  const handleFixStripeCustomer = async () => {
+    setIsFixingCustomer(true)
+    try {
+      const response = await fetch('/api/debug/fix-customer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      const result = await response.json()
+      
+      if (result.success) {
+        alert('✅ Stripe customer created! Refreshing dashboard...')
+        setRefreshTrigger(prev => prev + 1)
+      } else {
+        alert('❌ Error: ' + (result.error || 'Unknown error'))
+      }
+    } catch (error) {
+      alert('❌ Fetch error: ' + error)
+    } finally {
+      setIsFixingCustomer(false)
+    }
   }
 
   return (
@@ -30,9 +89,19 @@ export function ParentDashboard({ user }: ParentDashboardProps) {
           <h1 className="text-2xl font-bold">Welcome, {user.name}!</h1>
           <p className="text-muted-foreground">Parent Dashboard</p>
         </div>
-        <Badge variant="secondary" className="text-sm">
-          Role: {user.role}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={handleFixStripeCustomer}
+            disabled={isFixingCustomer}
+            variant="outline"
+            size="sm"
+          >
+            {isFixingCustomer ? 'Fixing...' : 'Fix Payment History'}
+          </Button>
+          <Badge variant="secondary" className="text-sm">
+            Role: {user.role}
+          </Badge>
+        </div>
       </div>
       
       <div className="grid gap-6 md:grid-cols-2">

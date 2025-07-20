@@ -33,7 +33,7 @@ const data = {
         },
         {
           title: "Payments",
-          url: "/payments",
+          url: "/pay",
           icon: CreditCard,
         },
         {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getUserEnrollments } from '@/lib/stripe-cache';
+import { syncStripeDataToUser } from '@/lib/stripe-cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,8 +12,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get enrollments for the user
-    const enrollments = await getUserEnrollments(session.user.id);
+    // Sync latest data from Stripe first (t3dotgg pattern)
+    const syncResult = await syncStripeDataToUser(session.user.id);
+    
+    // Get enrollments directly from sync result instead of re-reading cache
+    const enrollments = syncResult?.enrollments ?? {};
 
     return NextResponse.json({ 
       enrollments 

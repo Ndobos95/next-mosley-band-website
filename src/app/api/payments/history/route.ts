@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getUserPaymentHistory } from '@/lib/stripe-cache';
+import { getUserPaymentHistory, syncStripeDataToUser } from '@/lib/stripe-cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Sync latest data from Stripe first (t3dotgg pattern)
+    await syncStripeDataToUser(session.user.id);
+    
     // Get payment history for the user
     const payments = await getUserPaymentHistory(session.user.id);
     

@@ -27,6 +27,8 @@ model User {
   accounts         Account[]
   students         StudentParent[]
   stripeCache      StripeCache?
+  guestPayments    GuestPayment[]
+  donations        Donation[]
 }
 
 model Session {
@@ -90,7 +92,9 @@ model Student {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
   
-  parents    StudentParent[]
+  parents       StudentParent[]
+  enrollments   StudentPaymentEnrollment[]
+  guestPayments GuestPayment[]
 }
 
 model StudentParent {
@@ -128,6 +132,108 @@ model StripeCache {
   updatedAt DateTime @updatedAt
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Payment system tables
+model PaymentCategory {
+  id               String @id @default(cuid())
+  name             String @unique
+  description      String?
+  fullAmount       Int    // Amount in cents
+  allowIncrements  Boolean @default(false)
+  incrementAmount  Int?   // Amount in cents
+  active           Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  enrollments      StudentPaymentEnrollment[]
+  payments         Payment[]
+  guestPayments    GuestPayment[]
+}
+
+model StudentPaymentEnrollment {
+  id               String @id @default(cuid())
+  studentId        String
+  categoryId       String
+  totalOwed        Int    // Amount in cents
+  amountPaid       Int    @default(0) // Amount in cents
+  status           EnrollmentStatus @default(ACTIVE)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  student          Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  category         PaymentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  payments         Payment[]
+  
+  @@unique([studentId, categoryId])
+}
+
+model Payment {
+  id                     String @id @default(cuid())
+  enrollmentId           String
+  stripePaymentIntentId  String @unique
+  amount                 Int    // Amount in cents
+  status                 PaymentStatus @default(PENDING)
+  notes                  String?
+  parentEmail            String
+  studentName            String
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  enrollment             StudentPaymentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  category               PaymentCategory @relation(fields: [categoryId], references: [id])
+  categoryId             String
+}
+
+model GuestPayment {
+  id                     String @id @default(cuid())
+  parentName             String
+  parentEmail            String
+  studentName            String
+  categoryId             String
+  amount                 Int    // Amount in cents
+  notes                  String?
+  stripePaymentIntentId  String @unique
+  status                 PaymentStatus @default(PENDING)
+  matchedStudentId       String?
+  matchedUserId          String?
+  resolutionNotes        String?
+  resolvedAt             DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  category               PaymentCategory @relation(fields: [categoryId], references: [id])
+  matchedStudent         Student? @relation(fields: [matchedStudentId], references: [id])
+  matchedUser            User? @relation(fields: [matchedUserId], references: [id])
+}
+
+model Donation {
+  id                     String @id @default(cuid())
+  parentName             String
+  parentEmail            String
+  amount                 Int    // Amount in cents
+  notes                  String // Required for donations
+  stripePaymentIntentId  String @unique
+  status                 PaymentStatus @default(PENDING)
+  isGuest                Boolean @default(false)
+  userId                 String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  user                   User? @relation(fields: [userId], references: [id])
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
 }
 
 // Test data
