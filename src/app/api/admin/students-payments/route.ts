@@ -100,12 +100,16 @@ export async function GET(request: NextRequest) {
         categoryName: payment.category.name,
         notes: payment.notes,
         createdAt: payment.createdAt,
+        resolvedAt: payment.resolvedAt,
         isGuest: true
       }));
 
       const totalOwed = enrollmentSummary.reduce((sum, e) => sum + e.totalOwed, 0);
       const totalPaid = enrollmentSummary.reduce((sum, e) => sum + e.amountPaid, 0);
-      const guestPaymentTotal = guestPayments.reduce((sum, p) => sum + (p.status === 'COMPLETED' ? p.amount : 0), 0);
+      // Only count guest payments that haven't been resolved (no resolvedAt date)
+      const guestPaymentTotal = guestPayments
+        .filter(p => !p.resolvedAt) // Exclude resolved guest payments
+        .reduce((sum, p) => sum + (p.status === 'COMPLETED' ? p.amount : 0), 0);
 
       return {
         id: student.id,

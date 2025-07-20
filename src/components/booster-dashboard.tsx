@@ -101,8 +101,11 @@ export function BoosterDashboard({ user }: BoosterDashboardProps) {
     fetchData()
   }, [])
 
-  const unresolvedPayments = guestPayments.filter(p => !p.matchedStudent && p.status === 'COMPLETED')
-  const resolvedPayments = guestPayments.filter(p => p.matchedStudent || p.status !== 'COMPLETED')
+  // Fixed categorization logic:
+  // Needs Review: Payments with no matched student (regardless of status)
+  // Resolved: Payments with a matched student (auto-matched or manually resolved)
+  const unresolvedPayments = guestPayments.filter(p => !p.matchedStudent)
+  const resolvedPayments = guestPayments.filter(p => p.matchedStudent)
 
   const handleResolvePayment = async () => {
     if (!selectedPayment || !selectedStudentId) return

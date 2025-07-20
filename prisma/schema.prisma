@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,25 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Authentication tables for better-auth
 model User {
-  id               String    @id @default(cuid())
+  id               String          @id @default(cuid())
   name             String?
-  email            String    @unique
-  emailVerified    Boolean   @default(false)
+  email            String          @unique
+  emailVerified    Boolean         @default(false)
   image            String?
-  role             UserRole  @default(PARENT)
-  stripeCustomerId String?   // Pre-created Stripe customer ID
-  isGuestAccount   Boolean   @default(false) // For unmatched guest payments
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  
-  sessions         Session[]
+  role             String          @default("PARENT")
+  stripeCustomerId String?
+  isGuestAccount   Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   accounts         Account[]
-  students         StudentParent[]
-  stripeCache      StripeCache?
-  guestPayments    GuestPayment[]
   donations        Donation[]
+  guestPayments    GuestPayment[]
+  sessions         Session[]
+  stripeCache      StripeCache?
+  students         StudentParent[]
 }
 
 model Session {
@@ -40,12 +35,11 @@ model Session {
   userAgent String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Account {
-  id                    String   @id @default(cuid())
+  id                    String    @id @default(cuid())
   userId                String
   accountId             String
   providerId            String
@@ -56,11 +50,10 @@ model Account {
   scope                 String?
   idToken               String?
   password              String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([providerId, accountId])
 }
 
@@ -71,172 +64,128 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
+
   @@unique([identifier, value])
 }
 
-// User roles
-enum UserRole {
-  PARENT
-  DIRECTOR
-  BOOSTER
-}
-
-// Band program specific models
 model Student {
-  id         String          @id @default(cuid())
-  name       String
-  instrument String
-  grade      String?
-  source     StudentSource   @default(ROSTER)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-  
+  id            String                     @id @default(cuid())
+  name          String
+  instrument    String
+  grade         String?
+  source        String                     @default("ROSTER")
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  guestPayments GuestPayment[]
   parents       StudentParent[]
   enrollments   StudentPaymentEnrollment[]
-  guestPayments GuestPayment[]
 }
 
 model StudentParent {
-  id        String            @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   studentId String
-  status    StudentStatus     @default(PENDING)
+  status    String    @default("PENDING")
   deletedAt DateTime?
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  
-  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, studentId])
 }
 
-enum StudentStatus {
-  PENDING
-  ACTIVE
-  REJECTED
-}
-
-enum StudentSource {
-  ROSTER
-  PARENT_REGISTRATION
-  MANUAL
-}
-
-// Stripe cache for t3dotgg pattern
 model StripeCache {
   id        String   @id @default(cuid())
-  userId    String   @unique  // One cache record per user
-  data      Json     // All Stripe customer data as JSON
+  userId    String   @unique
+  data      Json
   updatedAt DateTime @updatedAt
-  
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Payment system tables
 model PaymentCategory {
-  id               String @id @default(cuid())
-  name             String @unique
-  description      String?
-  fullAmount       Int    // Amount in cents
-  allowIncrements  Boolean @default(false)
-  incrementAmount  Int?   // Amount in cents
-  active           Boolean @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  
-  enrollments      StudentPaymentEnrollment[]
-  payments         Payment[]
-  guestPayments    GuestPayment[]
+  id              String                     @id @default(cuid())
+  name            String                     @unique
+  description     String?
+  fullAmount      Int
+  allowIncrements Boolean                    @default(false)
+  incrementAmount Int?
+  active          Boolean                    @default(true)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  guestPayments   GuestPayment[]
+  payments        Payment[]
+  enrollments     StudentPaymentEnrollment[]
 }
 
 model StudentPaymentEnrollment {
-  id               String @id @default(cuid())
-  studentId        String
-  categoryId       String
-  totalOwed        Int    // Amount in cents
-  amountPaid       Int    @default(0) // Amount in cents
-  status           EnrollmentStatus @default(ACTIVE)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  
-  student          Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  category         PaymentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  payments         Payment[]
-  
+  id         String          @id @default(cuid())
+  studentId  String
+  categoryId String
+  totalOwed  Int
+  amountPaid Int             @default(0)
+  status     String          @default("ACTIVE")
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  payments   Payment[]
+  category   PaymentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  student    Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   @@unique([studentId, categoryId])
 }
 
 model Payment {
-  id                     String @id @default(cuid())
-  enrollmentId           String
-  stripePaymentIntentId  String @unique
-  amount                 Int    // Amount in cents
-  status                 PaymentStatus @default(PENDING)
-  notes                  String?
-  parentEmail            String
-  studentName            String
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  
-  enrollment             StudentPaymentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  category               PaymentCategory @relation(fields: [categoryId], references: [id])
-  categoryId             String
+  id                    String                   @id @default(cuid())
+  enrollmentId          String
+  stripePaymentIntentId String                   @unique
+  amount                Int
+  status                String                   @default("PENDING")
+  notes                 String?
+  parentEmail           String
+  studentName           String
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  categoryId            String
+  category              PaymentCategory          @relation(fields: [categoryId], references: [id])
+  enrollment            StudentPaymentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 }
 
 model GuestPayment {
-  id                     String @id @default(cuid())
-  parentName             String
-  parentEmail            String
-  studentName            String
-  categoryId             String
-  amount                 Int    // Amount in cents
-  notes                  String?
-  stripePaymentIntentId  String @unique
-  status                 PaymentStatus @default(PENDING)
-  matchedStudentId       String?
-  matchedUserId          String?
-  resolutionNotes        String?
-  resolvedAt             DateTime?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  
-  category               PaymentCategory @relation(fields: [categoryId], references: [id])
-  matchedStudent         Student? @relation(fields: [matchedStudentId], references: [id])
-  matchedUser            User? @relation(fields: [matchedUserId], references: [id])
+  id                    String          @id @default(cuid())
+  parentName            String
+  parentEmail           String
+  studentName           String
+  categoryId            String
+  amount                Int
+  notes                 String?
+  stripePaymentIntentId String          @unique
+  status                String          @default("PENDING")
+  matchedStudentId      String?
+  matchedUserId         String?
+  resolutionNotes       String?
+  resolvedAt            DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  matchedUser           User?           @relation(fields: [matchedUserId], references: [id])
+  matchedStudent        Student?        @relation(fields: [matchedStudentId], references: [id])
+  category              PaymentCategory @relation(fields: [categoryId], references: [id])
 }
 
 model Donation {
-  id                     String @id @default(cuid())
-  parentName             String
-  parentEmail            String
-  amount                 Int    // Amount in cents
-  notes                  String // Required for donations
-  stripePaymentIntentId  String @unique
-  status                 PaymentStatus @default(PENDING)
-  isGuest                Boolean @default(false)
-  userId                 String?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  
-  user                   User? @relation(fields: [userId], references: [id])
+  id                    String   @id @default(cuid())
+  parentName            String
+  parentEmail           String
+  amount                Int
+  notes                 String
+  stripePaymentIntentId String   @unique
+  status                String   @default("PENDING")
+  isGuest               Boolean  @default(false)
+  userId                String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User?    @relation(fields: [userId], references: [id])
 }
 
-enum EnrollmentStatus {
-  ACTIVE
-  COMPLETED
-  CANCELLED
-}
-
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
-}
-
-// Test data
 model Message {
   id        Int      @id @default(autoincrement())
   content   String

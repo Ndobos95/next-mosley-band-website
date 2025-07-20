@@ -67,19 +67,30 @@
 5. View payment history and outstanding balances per student
 6. View/download files and subscribe to calendar
 
-### Guest Payment Workflow
-1. Enter parent name, email, student name, and payment details
-2. System performs strict student name matching against roster
-3. If matched: process payment and link to student record
-4. If unmatched: create unmatched payment for booster review
-5. Receive payment confirmation email
+### Guest Payment Workflow (Webhook-Free)
+**High Confidence Match (≥0.8 fuzzy match confidence):**
+1. Guest enters parent name, email, student name, and payment details
+2. System performs fuzzy matching against student roster
+3. **Immediately create**: Ghost account + StudentParent relationship + StudentPaymentEnrollment record
+4. Create Stripe Checkout Session with ghost account customer ID
+5. **Later sync** (when admin views data) links Stripe payment to existing enrollment
+6. Payment appears correctly in admin dashboard with proper totals
+
+**Low Confidence Match (<0.8 confidence):**
+1. Guest enters payment details, system finds poor/no match
+2. **Store in GuestPayment table only** (no ghost account yet)
+3. Create Stripe Checkout Session for guest checkout
+4. **Booster manual resolution**: Review unmatched payment, select correct student
+5. **Resolution creates**: Ghost account + enrollment for selected student
+6. **Later sync** links payment to enrollment
 
 ### Booster Review Workflow
-1. Review unmatched payments in dashboard
-2. Search for correct student matches
-3. Create ghost accounts for parents without existing accounts
-4. Link payments to correct student records
-5. Add resolution notes for audit trail
+1. **Dashboard Categorization**: Payments categorized by student matching status:
+   - **Needs Review**: Payments with no matched student (regardless of payment status)
+   - **Resolved**: Payments with matched student (auto-matched or manually resolved)
+2. **Manual Resolution**: Review unmatched payments, select correct student from dropdown
+3. **Ghost Account Creation**: Creates ghost account + enrollment for selected student  
+4. **Audit Trail**: Resolution notes and timestamps for all manual interventions
 
 ## Database Schema Priorities
 - users (with stripe_customer_id and isGhostAccount flag)
@@ -213,33 +224,53 @@
 3. **✅ Core t3dotgg sync architecture** - Complete `syncStripeDataToUser()` function implemented with checkout session metadata mapping, `createStripeCustomerForUser()` built, TypeScript interfaces defined
 4. **✅ Payment category enrollment system** - Two-step flow implemented: enroll first, pay later with hardcoded categories (Band Fees $250, Spring Trip $900 in $50 increments, Equipment $150 in $25 increments)
 5. **✅ Stripe Checkout integration** - Hosted payment pages with incremental payment support using Checkout Sessions, payment UI with multiple increment options
-6. **✅ Webhook handler** - Simple routing to sync functions based on payment type, proper metadata handling from checkout sessions
+6. **✅ Webhook-free architecture** - No webhook complexity, all payments use consistent sync pattern
 7. **✅ Payment history dashboard** - Complete payment tracking with student details, categories, and status badges
 
-**🔄 REMAINING - Guest & Oversight Features (Tasks 8-10)**
-8. **🔄 Guest checkout system** - Non-authenticated payments with student matching
-9. **🔄 Ghost account creation** - Automatic account creation for unmatched payments
-10. **🔄 Booster review dashboard** - Manual resolution of unmatched payments
-11. **🔄 Donation system** - General Fund integration with required notes
+**✅ COMPLETED - Guest & Oversight Features**
+8. **✅ Guest checkout system** - Webhook-free guest payments with immediate ghost account creation
+9. **✅ Ghost account creation** - Automatic accounts for matched payments, manual creation for unmatched
+10. **✅ Booster review dashboard** - Manual resolution of unmatched payments with ghost account creation
+11. **🔄 Donation system** - General Fund integration with required notes (future enhancement)
 
-**🎯 Current Status - Production Ready Core**
+**🎯 Current Status - Production Ready System**
 - **✅ Complete authenticated parent payment flow**: Registration → Enrollment → Payment → History
+- **✅ Complete guest payment system**: Webhook-free with immediate ghost account creation
+- **✅ Admin oversight dashboards**: Correct payment categorization and manual resolution
 - **✅ Real-time UI updates**: Progress bars, enrollment status, payment buttons with loading states
-- **✅ t3dotgg pattern validated**: Checkout session metadata properly synced to payment cache
-- **✅ Critical bug fixed**: Payment metadata mapping from checkout sessions to payment intents
+- **✅ t3dotgg sync pattern**: All payments use consistent sync approach, no webhook complexity
+- **✅ Bug fixes applied**: Payment double-counting, dashboard categorization, enrollment creation
 - **✅ Build validation passes**: All TypeScript compilation successful
 
 **Key Technical Decisions:**
+- **NO STRIPE WEBHOOKS**: Webhooks are complex, unreliable, and unnecessary for this use case
 - Use Stripe Checkout Sessions (not Payment Intents) for PCI compliance and simplicity
+- **t3dotgg sync pattern for ALL payments**: Authenticated users sync on dashboard load, ghost accounts sync when accessed
 - Hardcoded payment categories: Band Fees ($250 full), Spring Trip ($900 in $50 increments), Equipment ($150 in $25 increments)
 - Lazy Stripe customer creation (on first enrollment attempt, not registration)
+- **Immediate ghost account creation**: For matched guest payments (confidence ≥0.8), create accounts before Stripe processing
 - Notes optional for student payments, required for donations
 - Ghost accounts auto-link siblings by last name matching
-- Webhook idempotency through database tracking, not complex state management
 
-**🐛 Bug Fixes Applied:**
-- Fixed critical payment metadata sync issue where checkout session data wasn't being captured in payment history
-- Updated sync function to fetch both paymentIntents and checkoutSessions for complete data
+**🐛 Critical Bug Fixes Applied:**
+
+**1. Guest Payment Enrollment Creation**
+- **Issue**: Guest payments weren't creating enrollment records, causing incorrect "total owed" calculations
+- **Root Cause**: Webhook dependency failed to create database records for matched payments
+- **Solution**: Webhook-free immediate ghost account + enrollment creation for high-confidence matches
+- **Result**: Guest payments now show correct totals in admin dashboard
+
+**2. Payment Double-Counting**
+- **Issue**: David Brown showed $500 total paid instead of $250
+- **Root Cause**: Admin API counted both enrollment.amountPaid AND resolved guest payment amounts
+- **Solution**: Filter out resolved guest payments (those with resolvedAt timestamp) from totals
+- **Result**: Accurate payment totals, no double-counting
+
+**3. Booster Dashboard Categorization**
+- **Issue**: Unmatched guest payments appeared in "Resolved" tab instead of "Needs Review"
+- **Root Cause**: Flawed filtering logic that categorized non-completed payments as "resolved"
+- **Solution**: Simplified logic based on student matching status, not payment status
+- **Result**: Correct categorization - unmatched = needs review, matched = resolved
 
 ### Phase 5: File Management 🔄 PENDING
 1. **🔄 Create director file upload** system with "Forms" category
@@ -290,44 +321,34 @@
 - `/api/user/update-role` - Update user role for testing
 - `/api/auth/[...all]` - Better Auth endpoints
 
-**🚧 Current Focus: Phase 4 - Payment System Implementation**
+**🎯 Current System Architecture**
 
-**Next Implementation Steps (t3dotgg Pattern):**
-1. **Database Schema Updates** - Add payment tables with t3dotgg architecture
-   - Add stripe_customer_id and isGhostAccount to users table
-   - Create payment_categories, student_payment_enrollments, payments tables
-   - Add guest_payments, donations, unmatched_payments tables
-   - Create special "General Fund" student record
+**✅ Complete Payment System (t3dotgg Pattern):**
+- **Database Schema**: Full payment tables with enrollment tracking
+- **Stripe Integration**: Checkout Sessions with webhook-free sync pattern  
+- **Payment Categories**: Band Fees ($250), Spring Trip ($900 in $50 increments), Equipment ($150 in $25 increments)
+- **Authenticated Flow**: Two-step enrollment → payment → sync pattern
+- **Guest Flow**: Immediate ghost account creation for matches, manual resolution for unmatched
+- **Admin Oversight**: Complete payment tracking and manual resolution tools
 
-2. **Stripe Integration Foundation**
-   - Install Stripe dependencies (@stripe/stripe-js, stripe server SDK)
-   - Set up environment variables for Stripe keys and webhook secrets
-   - Implement customer creation on user registration
-   - Build core t3dotgg sync function architecture
+**🚀 Next Enhancement Opportunities:**
+- **File Management System**: Director upload, parent download with categorization
+- **Google Calendar Integration**: External calendar display and subscription
+- **Analytics Dashboard**: Payment reporting and system metrics
+- **Donation System**: General Fund integration with required notes
 
-3. **Payment Category Enrollment System**
-   - Hardcode payment categories (Band Fees, Spring Trip, Equipment)
-   - Build enrollment interface for parents
-   - Implement payment increment validation
-   - Create enrollment tracking system
+**💡 Architecture Lessons Learned:**
 
-4. **Stripe Checkout Integration**
-   - Build checkout session creation
-   - Implement webhook handler with t3dotgg routing
-   - Add payment confirmation and email receipts
-   - Create payment history dashboard
+**Database as Single Source of Truth:**
+- All application logic reads from database tables, not JSON cache
+- Stripe is upstream source, database must be synced from Stripe data
+- Dual-write pattern required: update both Stripe AND database consistently
 
-5. **Guest Checkout & Manual Review**
-   - Build guest payment form with student matching
-   - Implement ghost account creation system
-   - Create booster review dashboard for unmatched payments
-   - Add donation system with General Fund integration
-
-**🎯 Long-term Goals:**
-- Complete payment system implementation using t3dotgg pattern
-- Build file management system
-- Integrate Google Calendar
-- Set up analytics and white-label configuration
+**Webhook-Free Benefits:**
+- Simplified architecture without webhook complexity or failure handling
+- Consistent sync pattern for all payment types (authenticated + guest)
+- Immediate feedback for matched guest payments in admin dashboard
+- Reliable processing without webhook delivery failures
 
 ## 🔧 CURRENT IMPLEMENTATION STATUS & NEXT STEPS
 
@@ -345,14 +366,14 @@ The authenticated parent payment flow is **fully functional and production-ready
 - User model extended with `stripeCustomerId` and `isGuestAccount` fields
 - StripeCache table with t3dotgg JSON data pattern
 - Stripe packages: `stripe` (server), `@stripe/stripe-js` (client)
-- Environment variables: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- Environment variables: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 
 **✅ Key Files Implemented:**
 - `src/lib/stripe.ts` - Stripe server configuration
 - `src/types/stripe.ts` - Complete TypeScript interfaces for enrollment & payments
 - `src/lib/stripe-cache.ts` - t3dotgg implementation with checkout session metadata mapping
 - `src/app/api/payments/` - Complete API endpoints: enroll, enrollments, create-checkout, history
-- `src/app/api/webhooks/stripe/` - Webhook handler with proper metadata sync
+- `src/app/api/payments/guest-checkout/` - Webhook-free guest payment processing
 - `src/components/student-cards.tsx` - Enhanced with payment UI and enrollment management
 - `src/components/payment-history.tsx` - Complete payment history display
 
@@ -445,13 +466,12 @@ When payment/enrollment data shows inconsistencies:
 - **✅ Critical bugs fixed** - Payment metadata sync issue resolved, authentication issues fixed
 - **✅ API endpoints tested** - Core enrollment and payment flow validated
 - **✅ Student details page** - Complete drill-down view for Directors/Boosters with payment oversight
-- **⚠️ Webhook setup needed** - Stripe webhook URL configuration for production
-- **⚠️ Environment variables** - Production Stripe keys and webhook secrets required
+- **⚠️ Environment variables** - Production Stripe keys required
 
 ### 📚 t3dotgg Implementation Validated
 - **✅ Single source of truth** - All payment data cached in StripeCache JSON
 - **✅ Checkout session metadata** - Properly mapped to payment history
-- **✅ Simple webhook pattern** - Direct sync on payment events, no complex state management
+- **✅ Webhook-free pattern** - All payments use consistent sync approach, no webhook complexity
 - **✅ Lazy customer creation** - Customers created on first enrollment attempt
 
 ## 🎯 LATEST UPDATES - Student Details & System Improvements
