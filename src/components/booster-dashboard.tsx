@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, CheckCircle2, DollarSign, Search } from "lucide-react"
+import { StudentsPaymentsOverview } from "@/components/students-payments-overview"
 
 interface BoosterDashboardProps {
   user: {
@@ -202,6 +203,9 @@ export function BoosterDashboard({ user }: BoosterDashboardProps) {
           <TabsTrigger value="resolved">
             Resolved ({resolvedPayments.length})
           </TabsTrigger>
+          <TabsTrigger value="payments">
+            All Student Payments
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="unresolved" className="space-y-4">
@@ -388,6 +392,10 @@ export function BoosterDashboard({ user }: BoosterDashboardProps) {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="payments">
+          <StudentsPaymentsOverview />
         </TabsContent>
       </Tabs>
     </div>

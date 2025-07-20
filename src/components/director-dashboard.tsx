@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DirectorStudentTable } from "@/components/director-student-table"
+import { StudentsPaymentsOverview } from "@/components/students-payments-overview"
 
 interface DirectorDashboardProps {
   user: {
@@ -58,7 +60,20 @@ export function DirectorDashboard({ user }: DirectorDashboardProps) {
         </Card>
       </div>
 
-      <DirectorStudentTable />
+      <Tabs defaultValue="students" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="students">Student Management</TabsTrigger>
+          <TabsTrigger value="payments">Payment Overview</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="students">
+          <DirectorStudentTable />
+        </TabsContent>
+        
+        <TabsContent value="payments">
+          <StudentsPaymentsOverview />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
