@@ -223,6 +223,33 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
       }
     }
     
+    // 5.5. Sync calculated payment amounts to database tables (t3dotgg pattern)
+    for (const [studentId, studentData] of Object.entries(enrollments)) {
+      for (const [categoryKey, categoryData] of Object.entries(studentData.categories)) {
+        const categoryName = PAYMENT_CATEGORIES[categoryKey as keyof typeof PAYMENT_CATEGORIES].name;
+        
+        // Find the enrollment record in the database
+        const enrollment = await prisma.studentPaymentEnrollment.findFirst({
+          where: {
+            student: {
+              id: studentId
+            },
+            category: {
+              name: categoryName
+            }
+          }
+        });
+        
+        if (enrollment) {
+          // Update the amountPaid field with calculated value from Stripe
+          await prisma.studentPaymentEnrollment.update({
+            where: { id: enrollment.id },
+            data: { amountPaid: categoryData.amountPaid }
+          });
+        }
+      }
+    }
+    
     // 6. Create cache data structure
     const cacheData: StripeCustomerCache = {
       customerId: user.stripeCustomerId,
@@ -336,6 +363,33 @@ export async function enrollStudentInCategory(
       totalOwed: categoryConfig.totalAmount,
       amountPaid: 0
     };
+    
+    // Create database enrollment record
+    const paymentCategory = await prisma.paymentCategory.findFirst({
+      where: { name: categoryConfig.name }
+    });
+    
+    if (paymentCategory) {
+      await prisma.studentPaymentEnrollment.upsert({
+        where: {
+          studentId_categoryId: {
+            studentId: studentId,
+            categoryId: paymentCategory.id
+          }
+        },
+        update: {
+          totalOwed: categoryConfig.totalAmount,
+          status: 'ACTIVE'
+        },
+        create: {
+          studentId: studentId,
+          categoryId: paymentCategory.id,
+          totalOwed: categoryConfig.totalAmount,
+          amountPaid: 0,
+          status: 'ACTIVE'
+        }
+      });
+    }
     
     // Update Stripe customer metadata
     await stripe.customers.update(stripeCustomerId, {

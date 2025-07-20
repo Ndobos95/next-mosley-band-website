@@ -363,6 +363,69 @@ The authenticated parent payment flow is **fully functional and production-ready
 - Payment UI with multiple increment options (single, multiple, pay all)
 - Real-time enrollment status updates and progress tracking
 
+## 🎓 CRITICAL ARCHITECTURE LESSONS LEARNED
+
+### **Database as Single Source of Truth**
+**Issue Discovered:** Payment totals showed $0 in admin dashboard despite working correctly in parent dashboard.
+
+**Root Cause:** 
+- Parent dashboard used StripeCache JSON (correct amounts)
+- Admin dashboard used database tables (always $0 because never updated)
+- `enrollStudentInCategory()` only updated Stripe metadata, never created database records
+
+**Key Lessons:**
+1. **Database is ALWAYS the source of truth** - All application logic should read from database tables
+2. **Stripe is the upstream source** - Database must be synced from Stripe data, not the other way around
+3. **JSON cache is for convenience only** - StripeCache should supplement, not replace database queries
+4. **Dual-write pattern required** - Every operation must update both Stripe AND database consistently
+
+### **Proper t3dotgg Implementation**
+**Corrected Pattern:**
+```typescript
+// WRONG: Only update cache
+await updateStripeCustomerMetadata(enrollments)
+
+// RIGHT: Update database AND cache
+await createDatabaseEnrollmentRecord(studentId, categoryId, totalOwed)
+await updateStripeCustomerMetadata(enrollments)
+await syncStripeDataToUser(userId) // Ensures database stays current
+```
+
+### **Enum/Category Name Consistency**
+**Issue:** Mixed usage of enum keys vs display names across codebase
+- Stripe metadata: `'BAND_FEES'` (enum key)
+- Database lookups: `'Band Fees'` (display name)
+- This caused sync failures and data inconsistencies
+
+**Solution:** Single source of truth for category definitions:
+```typescript
+export const PAYMENT_CATEGORIES = {
+  BAND_FEES: { name: 'Band Fees', totalAmount: 25000 },
+  // Always use categoryConfig.name for database operations
+}
+```
+
+### **Data Flow Architecture**
+**Correct Flow:**
+1. **User Action** → API endpoint
+2. **Database Write** → Create/update records in database tables
+3. **Stripe Sync** → Update Stripe customer metadata  
+4. **Cache Refresh** → Sync latest Stripe data back to database
+5. **UI Display** → Read from database tables (single source of truth)
+
+### **Debugging Best Practices**
+When payment/enrollment data shows inconsistencies:
+1. **Check database records first** - Do `StudentPaymentEnrollment` records exist?
+2. **Verify sync functions** - Are database updates happening in enrollment/payment flows?
+3. **Trace enum usage** - Are category names consistent between Stripe and database?
+4. **Add comprehensive logging** - Log both Stripe data AND database lookups
+
+### **Critical Development Rules**
+1. **Never read from cache for business logic** - Always query database tables
+2. **Always dual-write** - Update database AND Stripe in every operation
+3. **Use single enum source** - Reference `PAYMENT_CATEGORIES[key].name` consistently
+4. **Test admin views** - They often reveal database sync issues that parent views hide
+
 ### 🎯 NEXT PRIORITIES - Guest Payment & Oversight Features
 
 **Remaining Tasks (Phase 4 completion):**

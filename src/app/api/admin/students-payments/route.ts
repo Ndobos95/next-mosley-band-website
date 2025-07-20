@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { syncStripeDataToUser } from '@/lib/stripe-cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +22,19 @@ export async function GET(request: NextRequest) {
     if (!user || !['DIRECTOR', 'BOOSTER'].includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    // Sync Stripe data for all users with payment data to ensure database is current
+    const usersWithStripeData = await prisma.user.findMany({
+      where: {
+        stripeCustomerId: { not: null }
+      },
+      select: { id: true }
+    });
+
+    // Sync payment data for all users in parallel
+    await Promise.allSettled(
+      usersWithStripeData.map(user => syncStripeDataToUser(user.id))
+    );
 
     // Get all students with their enrollment and payment data
     const students = await prisma.student.findMany({
