@@ -36,8 +36,8 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
       setError(null)
       
       const [studentsResponse, enrollmentsResponse] = await Promise.all([
-        fetch('/api/students'),
-        fetch('/api/payments/enrollments')
+        fetch('/api/students', { credentials: 'include' }),
+        fetch('/api/payments/enrollments', { credentials: 'include' })
       ])
       
       const studentsData = await studentsResponse.json()
@@ -82,7 +82,9 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
       
       if (response.ok) {
         // Refresh enrollments
-        const enrollmentsResponse = await fetch('/api/payments/enrollments')
+        const enrollmentsResponse = await fetch('/api/payments/enrollments', {
+          credentials: 'include'
+        })
         if (enrollmentsResponse.ok) {
           const enrollmentsData = await enrollmentsResponse.json()
           setEnrollments(enrollmentsData.enrollments)
@@ -108,7 +110,9 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
       
       if (response.ok) {
         // Refresh enrollments
-        const enrollmentsResponse = await fetch('/api/payments/enrollments')
+        const enrollmentsResponse = await fetch('/api/payments/enrollments', {
+          credentials: 'include'
+        })
         if (enrollmentsResponse.ok) {
           const enrollmentsData = await enrollmentsResponse.json()
           setEnrollments(enrollmentsData.enrollments)

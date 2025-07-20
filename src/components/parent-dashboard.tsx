@@ -18,7 +18,6 @@ interface ParentDashboardProps {
 
 export function ParentDashboard({ user }: ParentDashboardProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [isFixingCustomer, setIsFixingCustomer] = useState(false)
   
   // Auto-sync when user returns to the tab (e.g., after Stripe checkout)
   useEffect(() => {
@@ -58,29 +57,6 @@ export function ParentDashboard({ user }: ParentDashboardProps) {
     setRefreshTrigger(prev => prev + 1)
   }
 
-  const handleFixStripeCustomer = async () => {
-    setIsFixingCustomer(true)
-    try {
-      const response = await fetch('/api/debug/fix-customer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      const result = await response.json()
-      
-      if (result.success) {
-        alert('✅ Stripe customer created! Refreshing dashboard...')
-        setRefreshTrigger(prev => prev + 1)
-      } else {
-        alert('❌ Error: ' + (result.error || 'Unknown error'))
-      }
-    } catch (error) {
-      alert('❌ Fetch error: ' + error)
-    } finally {
-      setIsFixingCustomer(false)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -90,14 +66,6 @@ export function ParentDashboard({ user }: ParentDashboardProps) {
           <p className="text-muted-foreground">Parent Dashboard</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            onClick={handleFixStripeCustomer}
-            disabled={isFixingCustomer}
-            variant="outline"
-            size="sm"
-          >
-            {isFixingCustomer ? 'Fixing...' : 'Fix Payment History'}
-          </Button>
           <Badge variant="secondary" className="text-sm">
             Role: {user.role}
           </Badge>

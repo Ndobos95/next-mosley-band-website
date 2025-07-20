@@ -22,7 +22,9 @@ export function PaymentHistory({ refreshTrigger }: PaymentHistoryProps) {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/payments/history')
+      const response = await fetch('/api/payments/history', {
+        credentials: 'include'
+      })
       const data = await response.json()
 
       if (response.ok) {

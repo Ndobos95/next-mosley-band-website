@@ -64,7 +64,9 @@ export function StudentsPaymentsOverview() {
 
   const fetchStudentsPayments = async () => {
     try {
-      const response = await fetch('/api/admin/students-payments')
+      const response = await fetch('/api/admin/students-payments', {
+        credentials: 'include'
+      })
       const data = await response.json()
       
       if (response.ok) {
