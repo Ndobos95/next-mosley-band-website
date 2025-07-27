@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Calendar, CreditCard, FileText, LogIn, LogOut, LayoutDashboard } from "lucide-react"
+import { Calendar, CreditCard, FileText, LogIn, LogOut, LayoutDashboard, Music, Heart } from "lucide-react"
 import { useSession, signOut } from "@/lib/auth-client"
 
 import {
@@ -11,42 +11,40 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Button } from "@/components/ui/button"
 
 // Band program navigation data
 const data = {
   navMain: [
     {
-      title: "Band Program",
-      items: [
-        {
-          title: "Dashboard",
-          url: "/dashboard",
-          icon: LayoutDashboard,
-        },
-        {
-          title: "Payments",
-          url: "/pay",
-          icon: CreditCard,
-        },
-        {
-          title: "Files",
-          url: "/files",
-          icon: FileText,
-        },
-        {
-          title: "Calendar",
-          url: "/calendar",
-          icon: Calendar,
-        },
-      ],
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Payments", 
+      url: "/pay",
+      icon: CreditCard,
+    },
+    {
+      title: "Donate",
+      url: "/donate",
+      icon: Heart,
+    },
+    {
+      title: "Files",
+      url: "/files", 
+      icon: FileText,
+    },
+    {
+      title: "Calendar",
+      url: "/calendar",
+      icon: Calendar,
     },
   ],
 }
@@ -64,49 +62,60 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   return (
-    <Sidebar {...props}>
+    <Sidebar variant="inset" {...props}>
       <SidebarHeader>
-        <h2 className="text-lg font-semibold px-4 py-2">Band Program</h2>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <Link href="/">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Music className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">Band Program</span>
+                  <span className="truncate text-xs">Management System</span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {data.navMain.map((item) => (
-          <SidebarGroup key={item.title}>
-            <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {item.items.map((menuItem) => (
-                  <SidebarMenuItem key={menuItem.title}>
-                    <SidebarMenuButton asChild>
-                      <Link href={menuItem.url}>
-                        <menuItem.icon />
-                        <span>{menuItem.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {data.navMain.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        {session?.user ? (
-          <Button 
-            variant="outline" 
-            className="w-full justify-start"
-            onClick={handleLogout}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        ) : (
-          <Button variant="outline" className="w-full justify-start" asChild>
-            <Link href="/login">
-              <LogIn className="mr-2 h-4 w-4" />
-              Login
-            </Link>
-          </Button>
-        )}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            {session?.user ? (
+              <SidebarMenuButton onClick={handleLogout}>
+                <LogOut />
+                <span>Logout</span>
+              </SidebarMenuButton>
+            ) : (
+              <SidebarMenuButton asChild>
+                <Link href="/login">
+                  <LogIn />
+                  <span>Login</span>
+                </Link>
+              </SidebarMenuButton>
+            )}
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

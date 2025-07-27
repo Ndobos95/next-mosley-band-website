@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, CheckCircle2, DollarSign, Search } from "lucide-react"
 import { StudentsPaymentsOverview } from "@/components/students-payments-overview"
+import { DonationsOverview } from "@/components/donations-overview"
 
 interface BoosterDashboardProps {
   user: {
@@ -209,6 +210,9 @@ export function BoosterDashboard({ user }: BoosterDashboardProps) {
           <TabsTrigger value="payments">
             All Student Payments
           </TabsTrigger>
+          <TabsTrigger value="donations">
+            Donations
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="unresolved" className="space-y-4">
@@ -399,6 +403,10 @@ export function BoosterDashboard({ user }: BoosterDashboardProps) {
         
         <TabsContent value="payments">
           <StudentsPaymentsOverview />
+        </TabsContent>
+        
+        <TabsContent value="donations">
+          <DonationsOverview />
         </TabsContent>
       </Tabs>
     </div>
