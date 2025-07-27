@@ -143,6 +143,8 @@ model Payment {
   notes                 String?
   parentEmail           String
   studentName           String
+  emailSent             Boolean                  @default(false)
+  emailError            String?
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
   categoryId            String
@@ -164,6 +166,8 @@ model GuestPayment {
   matchedUserId         String?
   resolutionNotes       String?
   resolvedAt            DateTime?
+  emailSent             Boolean         @default(false)
+  emailError            String?
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   matchedUser           User?           @relation(fields: [matchedUserId], references: [id])

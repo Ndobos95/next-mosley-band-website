@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { EmailService } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
   try {
@@ -112,6 +113,20 @@ export async function POST(request: NextRequest) {
         parentName: session.user.name,
         status: 'PENDING'
       })
+
+      // Send director notification for unmatched registration
+      try {
+        await EmailService.sendDirectorNotification({
+          parentName: session.user.name || 'Parent',
+          parentEmail: session.user.email,
+          studentName: newStudent.name,
+          instrument: newStudent.instrument,
+          dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+        })
+      } catch (emailError) {
+        console.error('Failed to send director notification:', emailError)
+        // Don't fail the request if email fails
+      }
 
       return NextResponse.json({
         success: false,

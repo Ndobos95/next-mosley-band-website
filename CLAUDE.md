@@ -447,7 +447,23 @@ When payment/enrollment data shows inconsistencies:
 3. **Use single enum source** - Reference `PAYMENT_CATEGORIES[key].name` consistently
 4. **Test admin views** - They often reveal database sync issues that parent views hide
 
-### 🎯 NEXT PRIORITIES - Guest Payment & Oversight Features
+### 🎯 NEXT PRIORITIES - Email System & Database Backups
+
+**Phase 9: Email System (Resend) 🔄 NEXT**
+1. **Complete email infrastructure** - Centralized email service with template system
+2. **Authentication emails** - Email verification, password reset with band branding
+3. **Admin notifications** - Unmatched registrations, manual review alerts
+4. **Parent notifications** - Payment confirmations, file uploads, reminders
+5. **System alerts** - Failure notifications, issues requiring attention
+6. **Email preferences** - Opt-out management for different notification types
+
+**Phase 10: Database Backup System 🔄 PENDING**
+1. **Basic backup infrastructure** - SQLite backup scripts with timestamp and verification
+2. **Docker backup integration** - Backup container with volume mounts and scheduling
+3. **Automated backup scheduling** - Daily backups with cron jobs and retention policies
+4. **Advanced backup features** - Cloud storage integration (S3, Google Cloud)
+5. **Monitoring and alerts** - Backup success/failure notifications via email
+6. **Restoration procedures** - Documented restoration process and rollback scripts
 
 **Remaining Tasks (Phase 4 completion):**
 1. **Guest checkout system** - Non-authenticated payments with student name matching
