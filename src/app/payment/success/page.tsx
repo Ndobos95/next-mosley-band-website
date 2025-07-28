@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { getSession } from '@/lib/auth-server'
 import { stripe } from '@/lib/stripe'
-import type Stripe from 'stripe'
 import { EmailService } from '@/lib/email'
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,18 +9,21 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
-async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
+/**
+ * Server action to handle payment confirmation emails
+ */
+async function handlePaymentEmails(sessionId: string) {
   const session = await getSession()
-  let checkoutSession: Stripe.Checkout.Session | null = null
   
   try {
     // Fetch the checkout session from Stripe
-    checkoutSession = await stripe.checkout.sessions.retrieve(sessionId, {
+    const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ['payment_intent', 'customer']
     })
 
     if (!checkoutSession.payment_intent) {
-      throw new Error('No payment intent found')
+      console.error('No payment intent found for session:', sessionId)
+      return { success: false, error: 'No payment intent found' }
     }
 
     const paymentIntentId = typeof checkoutSession.payment_intent === 'string' 
@@ -51,11 +53,8 @@ async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
 
     let paymentRecord = payment || guestPayment
     
-    // Fallback: Look for guest payments with temp IDs if no record found
+    // Fallback: Look for guest payments with temp IDs
     if (!paymentRecord) {
-      console.log(`No payment record found for payment intent ${paymentIntentId}, checking for temp guest payments...`)
-      
-      // Look for guest payments with temp IDs and try to match by session data
       const tempGuestPayments = await prisma.guestPayment.findMany({
         where: {
           stripePaymentIntentId: {
@@ -69,10 +68,9 @@ async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
         orderBy: {
           createdAt: 'desc'
         },
-        take: 10 // Check recent temp payments
+        take: 10
       })
       
-      // Try to match by amount and timing (payment should be recent)
       const sessionAmount = checkoutSession.amount_total
       const recentTime = new Date(Date.now() - 10 * 60 * 1000) // 10 minutes ago
       
@@ -82,9 +80,6 @@ async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
       )
       
       if (matchingGuestPayment) {
-        console.log(`Found matching temp guest payment: ${matchingGuestPayment.id}, updating with real payment intent ID`)
-        
-        // Update the guest payment record with real payment intent ID
         paymentRecord = await prisma.guestPayment.update({
           where: { id: matchingGuestPayment.id },
           data: { stripePaymentIntentId: paymentIntentId },
@@ -93,32 +88,27 @@ async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
             matchedStudent: true
           }
         })
-        
-        console.log(`✅ Updated guest payment ${matchingGuestPayment.id}: temp ID → ${paymentIntentId}`)
       }
     }
     
     if (!paymentRecord) {
       console.error(`Payment record not found for session ${sessionId}, payment intent ${paymentIntentId}`)
-      throw new Error('Payment record not found')
+      return { success: false, error: 'Payment record not found' }
     }
 
-    // Determine email data based on payment type
-    console.log('🔍 Starting email data construction...')
-    console.log('Payment record type:', payment ? 'authenticated' : (guestPayment ? 'guest' : 'unknown'))
-    console.log('Payment record:', { 
-      id: paymentRecord.id, 
-      emailSent: paymentRecord.emailSent,
-      amount: paymentRecord.amount 
-    })
-    
+    // Skip if email already sent
+    if (paymentRecord.emailSent) {
+      console.log('Email already sent for payment:', paymentIntentId)
+      return { success: true, emailResult: { success: true } }
+    }
+
+    // Construct email data
     let emailData
     if (payment) {
       // Authenticated payment
-      console.log('📧 Constructing email data for authenticated payment')
       const parentUser = session?.user
       if (!parentUser) {
-        throw new Error('User session not found for authenticated payment')
+        return { success: false, error: 'User session not found for authenticated payment' }
       }
 
       emailData = {
@@ -131,21 +121,10 @@ async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
         paymentDate: new Date()
       }
     } else if (guestPayment || ('parentEmail' in paymentRecord)) {
-      // Guest payment (original or updated)
-      console.log('📧 Constructing email data for guest payment')
+      // Guest payment
       const guestRecord = guestPayment || (paymentRecord as unknown as typeof guestPayment)
       
       if (guestRecord) {
-        console.log('Guest payment details:', {
-          parentEmail: guestRecord.parentEmail,
-          parentName: guestRecord.parentName,
-          studentName: guestRecord.studentName,
-          hasMatchedStudent: !!guestRecord.matchedStudent,
-          matchedStudentName: guestRecord.matchedStudent?.name,
-          hasCategory: !!guestRecord.category,
-          categoryName: guestRecord.category?.name
-        })
-        
         emailData = {
           parentEmail: guestRecord.parentEmail,
           parentName: guestRecord.parentName,
@@ -158,42 +137,129 @@ async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
       }
     }
     
-    console.log('📧 Constructed email data:', emailData)
+    if (!emailData) {
+      return { success: false, error: 'Could not construct email data' }
+    }
 
-    // Send confirmation email if not already sent
-    console.log('📨 Checking email sending conditions...')
-    console.log('Email data exists:', !!emailData)
-    console.log('Email already sent:', paymentRecord.emailSent)
-    console.log('Should send email:', !!(emailData && !paymentRecord.emailSent))
+    // Send notification emails (both parent confirmation and booster notification)
+    const emailResult = await EmailService.sendPaymentNotificationEmails(emailData)
     
-    let emailResult = { success: true }
-    if (emailData && !paymentRecord.emailSent) {
-      console.log('📤 Attempting to send payment confirmation email...')
-      emailResult = await EmailService.sendPaymentConfirmation(emailData)
-      console.log('📧 Email send result:', emailResult)
-      
-      // Update email status in database
-      if (payment) {
-        await prisma.payment.update({
-          where: { id: payment.id },
-          data: {
-            emailSent: emailResult.success,
-            emailError: emailResult.success ? null : ('error' in emailResult ? String(emailResult.error) : 'Unknown error')
+    // Update email status in database
+    if (payment) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          emailSent: emailResult.success,
+          emailError: emailResult.success ? null : (emailResult.confirmationResult.error || emailResult.boosterResult.error || 'Unknown error')
+        }
+      })
+    } else if (guestPayment) {
+      await prisma.guestPayment.update({
+        where: { id: guestPayment.id },
+        data: {
+          emailSent: emailResult.success,
+          emailError: emailResult.success ? null : (emailResult.confirmationResult.error || emailResult.boosterResult.error || 'Unknown error')
+        }
+      })
+    }
+
+    return { success: true, emailResult }
+    
+  } catch (error) {
+    console.error('Error handling payment emails:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }
+  }
+}
+
+async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
+  // Handle payment emails server-side
+  const emailResult = await handlePaymentEmails(sessionId)
+  
+  try {
+    // Fetch the checkout session from Stripe for display purposes
+    const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['payment_intent', 'customer']
+    })
+
+    if (!checkoutSession.payment_intent) {
+      throw new Error('No payment intent found')
+    }
+
+    const paymentIntentId = typeof checkoutSession.payment_intent === 'string' 
+      ? checkoutSession.payment_intent 
+      : checkoutSession.payment_intent.id
+
+    // Find the payment in our database for display
+    const payment = await prisma.payment.findFirst({
+      where: { stripePaymentIntentId: paymentIntentId },
+      include: {
+        category: true,
+        enrollment: {
+          include: {
+            student: true
           }
-        })
-      } else if (guestPayment) {
-        await prisma.guestPayment.update({
-          where: { id: guestPayment.id },
-          data: {
-            emailSent: emailResult.success,
-            emailError: emailResult.success ? null : ('error' in emailResult ? String(emailResult.error) : 'Unknown error')
+        }
+      }
+    })
+
+    const guestPayment = await prisma.guestPayment.findFirst({
+      where: { stripePaymentIntentId: paymentIntentId },
+      include: {
+        category: true,
+        matchedStudent: true
+      }
+    })
+
+    let paymentRecord = payment || guestPayment
+    
+    // Fallback: Look for guest payments with temp IDs if no record found
+    if (!paymentRecord) {
+      const tempGuestPayments = await prisma.guestPayment.findMany({
+        where: {
+          stripePaymentIntentId: {
+            startsWith: 'temp_'
+          }
+        },
+        include: {
+          category: true,
+          matchedStudent: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 10
+      })
+      
+      const sessionAmount = checkoutSession.amount_total
+      const recentTime = new Date(Date.now() - 10 * 60 * 1000)
+      
+      const matchingGuestPayment = tempGuestPayments.find(gp => 
+        gp.amount === sessionAmount && 
+        gp.createdAt >= recentTime
+      )
+      
+      if (matchingGuestPayment) {
+        paymentRecord = await prisma.guestPayment.update({
+          where: { id: matchingGuestPayment.id },
+          data: { stripePaymentIntentId: paymentIntentId },
+          include: {
+            category: true,
+            matchedStudent: true
           }
         })
       }
     }
+    
+    if (!paymentRecord) {
+      console.error(`Payment record not found for session ${sessionId}, payment intent ${paymentIntentId}`)
+      throw new Error('Payment record not found')
+    }
 
     const amountFormatted = `$${(paymentRecord.amount / 100).toFixed(2)}`
-    // Get student name from the found payment record (which might be updated guestPayment)
+    // Get student name from the found payment record
     const studentName = payment?.enrollment.student.name || 
                        ('matchedStudent' in paymentRecord ? paymentRecord.matchedStudent?.name : undefined) || 
                        ('studentName' in paymentRecord ? paymentRecord.studentName : undefined) || 
@@ -236,6 +302,19 @@ async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
               </div>
             )}
 
+            {emailResult.success && emailResult.emailResult && emailResult.emailResult.success && (
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-blue-500 mr-2" />
+                  <div>
+                    <p className="text-sm text-blue-700">
+                      Payment confirmed! Confirmation emails have been sent to you and the program coordinators.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="text-center pt-4">
               <Link href="/dashboard">
                 <Button>View Dashboard</Button>
@@ -249,10 +328,6 @@ async function PaymentSuccessContent({ sessionId }: { sessionId: string }) {
     console.error('Payment success page error:', error)
     console.error('Debug info:', {
       sessionId,
-      paymentIntentId: typeof checkoutSession?.payment_intent === 'string' 
-        ? checkoutSession.payment_intent 
-        : checkoutSession?.payment_intent?.id,
-      sessionAmount: checkoutSession?.amount_total,
       errorMessage: error instanceof Error ? error.message : 'Unknown error'
     })
     

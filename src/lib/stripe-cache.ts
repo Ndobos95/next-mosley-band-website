@@ -2,7 +2,6 @@
 
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
-import { EmailService } from '@/lib/email';
 import type { StripeCustomerCache, PaymentTotals, StripePaymentData, StudentEnrollments, PaymentCategory } from '@/types/stripe';
 import { PAYMENT_CATEGORIES } from '@/types/stripe';
 
@@ -274,9 +273,6 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
       }
     });
     
-    // Check for payments missing confirmation emails and send them
-    await sendMissedConfirmationEmails(userId, payments);
-    
     console.log(`✅ Synced Stripe data for user ${userId}: ${payments.length} payments`);
     return cacheData;
     
@@ -414,99 +410,6 @@ export async function enrollStudentInCategory(
   }
 }
 
-/**
- * Send confirmation emails for payments that didn't get them
- */
-async function sendMissedConfirmationEmails(userId: string, payments: StripePaymentData[]) {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-
-    if (!user) return;
-
-    for (const payment of payments) {
-      if (payment.status !== 'succeeded') continue;
-
-      // Check if this payment already has an email sent
-      const paymentRecord = await prisma.payment.findFirst({
-        where: { stripePaymentIntentId: payment.id },
-        include: {
-          category: true,
-          enrollment: {
-            include: { student: true }
-          }
-        }
-      });
-
-      const guestPaymentRecord = await prisma.guestPayment.findFirst({
-        where: { stripePaymentIntentId: payment.id },
-        include: {
-          category: true,
-          matchedStudent: true
-        }
-      });
-
-      const record = paymentRecord || guestPaymentRecord;
-      if (!record || record.emailSent) continue;
-
-      // Send missed confirmation email
-      let emailData;
-      if (paymentRecord) {
-        emailData = {
-          parentEmail: user.email,
-          parentName: user.name || 'Parent',
-          studentName: paymentRecord.enrollment.student.name,
-          categoryName: paymentRecord.category.name,
-          amount: payment.amount,
-          paymentIntentId: payment.id,
-          paymentDate: new Date(payment.created * 1000)
-        };
-      } else if (guestPaymentRecord) {
-        emailData = {
-          parentEmail: guestPaymentRecord.parentEmail,
-          parentName: guestPaymentRecord.parentName,
-          studentName: guestPaymentRecord.matchedStudent?.name || guestPaymentRecord.studentName,
-          categoryName: guestPaymentRecord.category.name,
-          amount: payment.amount,
-          paymentIntentId: payment.id,
-          paymentDate: new Date(payment.created * 1000)
-        };
-      }
-
-      if (emailData) {
-        const emailResult = await EmailService.sendPaymentConfirmation(emailData);
-        
-        // Update email status
-        if (paymentRecord) {
-          await prisma.payment.update({
-            where: { id: paymentRecord.id },
-            data: {
-              emailSent: emailResult.success,
-              emailError: emailResult.success ? null : emailResult.error
-            }
-          });
-        } else if (guestPaymentRecord) {
-          await prisma.guestPayment.update({
-            where: { id: guestPaymentRecord.id },
-            data: {
-              emailSent: emailResult.success,
-              emailError: emailResult.success ? null : emailResult.error
-            }
-          });
-        }
-
-        if (emailResult.success) {
-          console.log(`📧 Sent missed confirmation email for payment ${payment.id}`);
-        } else {
-          console.error(`❌ Failed to send missed confirmation email for payment ${payment.id}:`, emailResult.error);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error sending missed confirmation emails:', error);
-  }
-}
 
 /**
  * Unenroll a student from a payment category
