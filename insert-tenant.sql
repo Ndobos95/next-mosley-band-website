@@ -1,0 +1,2 @@
+INSERT INTO tenants (slug, name) VALUES ('default', 'Default Band Program') ON CONFLICT (slug) DO NOTHING;
+INSERT INTO payment_categories (id, name, description, full_amount, allow_increments, increment_amount) VALUES ('BAND_FEES', 'Band Fees', 'Annual band participation fees', 25000, false, null), ('SPRING_TRIP', 'Spring Trip', 'Spring band trip expenses', 90000, true, 5000), ('EQUIPMENT', 'Equipment', 'Band equipment and supplies', 15000, true, 2500) ON CONFLICT (id) DO NOTHING;

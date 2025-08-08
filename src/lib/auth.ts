@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth"
-import { prismaAdapter } from "better-auth/adapters/prisma"
-import { prisma } from "./prisma"
+import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { db } from "./drizzle"
 import { Resend } from "resend"
 
 console.log('🚀 Initializing better-auth...')
@@ -9,8 +9,10 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-  database: prismaAdapter(prisma, {
-    provider: "sqlite"
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    // If your table names are plural, set usePlural: true or provide a schema mapping
+    usePlural: true,
   }),
   
   logger: {

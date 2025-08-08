@@ -1,6 +1,9 @@
 'use server'
 
-import { prisma } from '@/lib/prisma'
+import { db } from '@/lib/drizzle'
+import { messages } from '@/db/schema'
+import { headers } from 'next/headers'
+import { resolveTenantFromHeaders } from '@/lib/tenancy'
 import { revalidatePath } from 'next/cache'
 
 export async function createMessage(formData: FormData) {
@@ -10,10 +13,11 @@ export async function createMessage(formData: FormData) {
     throw new Error('Message content is required')
   }
 
-  await prisma.message.create({
-    data: {
-      content: content.trim()
-    }
+  const tenant = await resolveTenantFromHeaders(await headers())
+  if (!tenant) throw new Error('Tenant not found')
+  await db.insert(messages).values({
+    tenantId: tenant.id,
+    content: content.trim(),
   })
 
   revalidatePath('/messages')

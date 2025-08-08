@@ -1,6 +1,9 @@
 import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { headers } from "next/headers"
+import { db } from "@/lib/drizzle"
+import { paymentCategories } from "@/db/schema"
+import { asc, and, eq } from "drizzle-orm"
+import { headers } from 'next/headers'
+import { resolveTenantFromHeaders } from '@/lib/tenancy'
 import { GuestPaymentForm } from "@/components/guest-payment-form"
 import { PaymentPageContent } from "@/components/payment-page-content"
 
@@ -11,10 +14,13 @@ export default async function PaymentPage() {
     headers: await headers()
   })
   
-  const categories = await prisma.paymentCategory.findMany({
-    where: { active: true },
-    orderBy: { name: 'asc' }
-  })
+  const tenant = await resolveTenantFromHeaders(await headers())
+  if (!tenant) throw new Error('Tenant not found')
+  const categories = await db
+    .select()
+    .from(paymentCategories)
+    .where(and(eq(paymentCategories.active, true), eq(paymentCategories.tenantId, tenant.id)))
+    .orderBy(asc(paymentCategories.name))
 
   // If user is authenticated, show parent payment interface
   if (session?.user) {
