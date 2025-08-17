@@ -4,7 +4,7 @@ import { db } from '@/lib/drizzle'
 import { donations as donationsTable } from '@/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { resolveTenant } from '@/lib/tenancy'
-import { auth } from '@/lib/auth'
+import { getSession, requireAuth, requireRole } from '@/lib/auth-server'
 import { stripe } from '@/lib/stripe'
 
 export async function GET(request: NextRequest) {

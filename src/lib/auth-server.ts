@@ -1,12 +1,34 @@
-import { auth } from "./auth"
-import { headers } from "next/headers"
+import { createClient, getUser } from "./supabase/server"
 import { redirect } from "next/navigation"
+import { db } from "./drizzle"
+import { users } from "@/db/schema"
+import { eq } from "drizzle-orm"
 
 export async function getSession() {
   try {
-    // TODO: Replace with Supabase Auth
-    const session = null // Temporary during migration
-    return session
+    const supabase = await createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.user) return null
+    
+    // Get user data from our database
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .limit(1)
+    
+    if (user.length === 0) return null
+    
+    return {
+      user: {
+        id: session.user.id,
+        email: session.user.email!,
+        role: user[0].role,
+        name: user[0].displayName,
+        tenantId: user[0].tenantId
+      }
+    }
   } catch (error) {
     console.error("Error getting session:", error)
     return null

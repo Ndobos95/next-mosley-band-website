@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getSession, requireAuth, requireRole } from '@/lib/auth-server';
 import { getUserPaymentHistory, syncStripeDataToUser } from '@/lib/stripe-cache';
 
 export async function GET(request: NextRequest) {

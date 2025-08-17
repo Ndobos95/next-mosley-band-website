@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getSession, requireAuth, requireRole } from '@/lib/auth-server';
 import { db } from '@/lib/drizzle';
 import { studentParents, users, students } from '@/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';

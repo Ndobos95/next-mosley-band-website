@@ -40,8 +40,27 @@ export default function RegisterPage() {
 
       if (result.error) {
         setError(result.error.message || "An error occurred")
-      } else {
-        // Redirect to dashboard or login
+      } else if (result.data.user) {
+        // Create user profile after successful registration
+        try {
+          const response = await fetch('/api/auth/create-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: result.data.user.id,
+              email: result.data.user.email,
+              displayName: name
+            })
+          })
+          
+          if (!response.ok) {
+            console.error('Failed to create user profile')
+          }
+        } catch (error) {
+          console.error('Error creating user profile:', error)
+        }
+        
+        // Redirect to dashboard
         router.push("/dashboard")
       }
     } catch {

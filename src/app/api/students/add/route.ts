@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getSession, requireAuth, requireRole } from '@/lib/auth-server'
 import { db } from '@/lib/drizzle'
 import { students, studentParents } from '@/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
@@ -9,9 +9,7 @@ import { EmailService } from '@/lib/email'
 export async function POST(request: NextRequest) {
   try {
     // Get the current user session
-    const session = await auth.api.getSession({
-      headers: request.headers
-    })
+    const session = await getSession()
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
