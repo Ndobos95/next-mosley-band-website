@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { isSubdomainAvailable, isValidSubdomain } from '@/lib/tenant-context'
+import { isValidSubdomain } from '@/lib/tenant-context'
+import { isSubdomainAvailable as checkAvailability, getCurrentEnvironment } from '@/lib/environment'
+import { getTenantBySlug } from '@/lib/tenant-context'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -20,11 +22,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const available = await isSubdomainAvailable(subdomain)
+    const environment = getCurrentEnvironment()
+    
+    // Check if subdomain is in reserved list or has invalid prefixes
+    const formatAvailable = checkAvailability(subdomain, environment)
+    if (!formatAvailable) {
+      return NextResponse.json({
+        available: false,
+        error: 'This subdomain is reserved or not allowed'
+      })
+    }
+    
+    // Check if subdomain already exists in database
+    const existing = await getTenantBySlug(subdomain)
+    const available = existing === null
     
     return NextResponse.json({
       available,
-      error: available ? null : 'This subdomain is not available'
+      error: available ? null : 'This subdomain is already taken'
     })
   } catch (error) {
     console.error('Error checking subdomain availability:', error)

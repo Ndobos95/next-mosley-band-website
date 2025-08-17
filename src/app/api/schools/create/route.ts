@@ -3,7 +3,9 @@ import { db } from '@/lib/drizzle'
 import { tenants, connectedAccounts } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { validateInviteCode, markInviteCodeAsUsed } from '@/lib/invite-codes'
-import { isSubdomainAvailable, isValidSubdomain } from '@/lib/tenant-context'
+import { isValidSubdomain } from '@/lib/tenant-context'
+import { isSubdomainAvailable, getCurrentEnvironment } from '@/lib/environment'
+import { getTenantBySlug } from '@/lib/tenant-context'
 import { RedisCloudCache } from '@/lib/redis-cloud'
 import { MemoryTenantCache } from '@/lib/tenant-memory-cache'
 
@@ -48,6 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Validate subdomain
+    const environment = getCurrentEnvironment()
+    
     if (!isValidSubdomain(schoolData.subdomain)) {
       return NextResponse.json(
         { error: 'Invalid subdomain format' },
@@ -55,10 +59,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const subdomainAvailable = await isSubdomainAvailable(schoolData.subdomain)
-    if (!subdomainAvailable) {
+    // Check if subdomain is reserved or has invalid prefixes for environment
+    const formatValid = isSubdomainAvailable(schoolData.subdomain, environment)
+    if (!formatValid) {
       return NextResponse.json(
-        { error: 'Subdomain is not available' },
+        { error: 'This subdomain is reserved or not allowed' },
+        { status: 400 }
+      )
+    }
+    
+    // Check if subdomain already exists in database
+    const existingTenant = await getTenantBySlug(schoolData.subdomain)
+    if (existingTenant) {
+      return NextResponse.json(
+        { error: 'Subdomain is already taken' },
         { status: 400 }
       )
     }
@@ -110,8 +124,12 @@ export async function POST(request: NextRequest) {
     // 7. TODO: Generate Stripe onboarding link (placeholder for now)
     // const onboardingLink = await createStripeOnboardingLink(stripeAccount.id, tenant.slug)
     
-    // For now, redirect to tenant dashboard
-    const tenantUrl = `https://${tenant.slug}.boosted.band/dashboard`
+    // Generate appropriate URL based on environment
+    const tenantUrl = environment === 'staging' 
+      ? `https://${tenant.slug}.boostedband.dev/dashboard`
+      : environment === 'development'
+      ? `http://${tenant.slug}.localhost:3000/dashboard`
+      : `https://${tenant.slug}.boosted.band/dashboard`
 
     return NextResponse.json({
       success: true,
@@ -120,6 +138,7 @@ export async function POST(request: NextRequest) {
         slug: tenant.slug,
         name: tenant.name,
       },
+      environment,
       // onboardingLink, // TODO: Add when Stripe Connect is implemented
       redirectUrl: tenantUrl,
     })

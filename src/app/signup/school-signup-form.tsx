@@ -118,8 +118,12 @@ export function SchoolSignupForm({ invite }: SchoolSignupFormProps) {
       if (data.onboardingLink) {
         window.location.href = data.onboardingLink
       } else {
-        // Fallback to tenant site
-        window.location.href = `https://${formData.subdomain}.boosted.band`
+        // Redirect to tenant site based on environment
+        const environment = data.environment || 'production'
+        const tenantUrl = environment === 'staging' 
+          ? `https://${formData.subdomain}.boostedband.dev`
+          : `https://${formData.subdomain}.boosted.band`
+        window.location.href = tenantUrl
       }
       
     } catch (err) {

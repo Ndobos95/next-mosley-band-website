@@ -8,13 +8,14 @@ import { eq } from 'drizzle-orm'
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const slug = searchParams.get('slug')
+  const environment = searchParams.get('environment') || 'production'
 
   if (!slug) {
     return NextResponse.json({ error: 'Slug required' }, { status: 400 })
   }
 
   try {
-    console.log('🔍 Internal API checking tenant:', slug)
+    console.log('🔍 Internal API checking tenant:', slug, 'env:', environment)
     
     // Try Redis Cloud first (if available in production)
     const redisCached = await RedisCloudCache.getTenant(slug)
