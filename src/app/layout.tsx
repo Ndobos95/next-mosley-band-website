@@ -7,6 +7,8 @@ import "./startup";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { TenantIndicator } from "@/components/tenant-indicator";
+import { TenantContextEnforcer } from "@/components/tenant-context-enforcer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,6 +59,8 @@ export default function RootLayout({
               </main>
             </SidebarInset>
           </SidebarProvider>
+          <TenantIndicator />
+          <TenantContextEnforcer />
         </ThemeProvider>
       </body>
     </html>

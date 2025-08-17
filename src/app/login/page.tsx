@@ -1,17 +1,27 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { getLoginRedirectUrl } from "@/lib/tenant-redirect"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const searchParams = useSearchParams()
+  
+  // Pre-fill credentials from URL params (for testing)
+  useEffect(() => {
+    const emailParam = searchParams.get('email')
+    const passwordParam = searchParams.get('password')
+    if (emailParam) setEmail(emailParam)
+    if (passwordParam) setPassword(passwordParam)
+  }, [searchParams])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -26,9 +36,21 @@ export default function LoginPage() {
 
       if (result.error) {
         setError(result.error.message || "An error occurred")
-      } else {
-        // Force a page refresh to ensure cookies are set properly
-        window.location.href = "/dashboard"
+      } else if (result.data?.user) {
+        // Get the tenant-specific redirect URL
+        const redirectUrl = await getLoginRedirectUrl()
+        
+        // Check if we need to redirect to a different domain/subdomain
+        const currentHost = window.location.host
+        const redirectHost = new URL(redirectUrl, window.location.origin).host
+        
+        if (currentHost !== redirectHost) {
+          // Redirecting to tenant subdomain
+          window.location.href = redirectUrl
+        } else {
+          // Already on correct subdomain, just navigate to dashboard
+          window.location.href = "/dashboard"
+        }
       }
     } catch {
       setError("An unexpected error occurred. Please try again.")
