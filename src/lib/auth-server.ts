@@ -1,4 +1,4 @@
-import { createClient, getUser } from "./supabase/server"
+import { createClient } from "./supabase/server"
 import { redirect } from "next/navigation"
 import { db } from "./drizzle"
 import { users } from "@/db/schema"

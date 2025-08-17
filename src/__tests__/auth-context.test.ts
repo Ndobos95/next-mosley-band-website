@@ -1,4 +1,4 @@
-import { getAuthenticatedUser, requireTenant } from '@/lib/auth-context'
+// import { getAuthenticatedUser, requireTenant } from '@/lib/auth-context'
 
 // Mock Supabase client
 jest.mock('@/lib/supabase/server', () => ({

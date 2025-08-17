@@ -23,13 +23,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user profile
-    await db.insert(userProfiles).values({
+    const profileData = {
       id: userId,
       email,
       displayName: displayName || null,
-      role: 'PARENT', // Default role
+      role: 'PARENT' as const,
       tenantId: defaultTenant[0].id
-    })
+    }
+    
+    await db.insert(userProfiles).values(profileData)
 
     return NextResponse.json({ success: true })
   } catch (error) {

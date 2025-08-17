@@ -4,7 +4,7 @@ import { db } from '@/lib/drizzle'
 import { studentParents, students } from '@/db/schema'
 import { and, desc, eq, isNull, ne } from 'drizzle-orm'
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get authenticated user and tenant context
     const { user, tenant } = await requireTenant()
