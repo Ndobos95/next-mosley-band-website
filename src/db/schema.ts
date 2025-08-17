@@ -183,14 +183,6 @@ export const donations = pgTable('donations', {
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
 })
 
-export const messages = pgTable('messages', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-  content: text('content').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
-})
-
 // Supabase Auth integration - user profiles with tenant relationships
 export const userProfiles = pgTable('user_profiles', {
   id: uuid('id').primaryKey(), // matches auth.users.id

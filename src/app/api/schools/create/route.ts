@@ -67,10 +67,10 @@ export async function POST(request: NextRequest) {
     const tenantResult = await db.insert(tenants).values({
       slug: schoolData.subdomain,
       name: schoolData.name,
-      // TODO: Fix TypeScript issue with directorEmail and directorName
-      // directorEmail: directorData.email,
-      // directorName: directorData.name,
-    }).returning()
+      directorEmail: directorData.email,
+      directorName: directorData.name,
+      status: 'active', // Set status explicitly
+    } as any).returning()
 
     const tenant = tenantResult[0]
 
