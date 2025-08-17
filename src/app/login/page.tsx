@@ -27,8 +27,8 @@ export default function LoginPage() {
       if (result.error) {
         setError(result.error.message || "An error occurred")
       } else {
-        // Redirect to dashboard or home page
-        router.push("/dashboard")
+        // Force a page refresh to ensure cookies are set properly
+        window.location.href = "/dashboard"
       }
     } catch {
       setError("An unexpected error occurred. Please try again.")

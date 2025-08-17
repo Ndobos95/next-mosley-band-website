@@ -1,32 +1,32 @@
 import { createClient } from "./supabase/server"
 import { redirect } from "next/navigation"
 import { db } from "./drizzle"
-import { users } from "@/db/schema"
+import { userProfiles } from "@/db/schema"
 import { eq } from "drizzle-orm"
 
 export async function getSession() {
   try {
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user } } = await supabase.auth.getUser()
     
-    if (!session?.user) return null
+    if (!user) return null
     
     // Get user data from our database
-    const user = await db
+    const userProfile = await db
       .select()
-      .from(users)
-      .where(eq(users.id, session.user.id))
+      .from(userProfiles)
+      .where(eq(userProfiles.id, user.id))
       .limit(1)
     
-    if (user.length === 0) return null
+    if (userProfile.length === 0) return null
     
     return {
       user: {
-        id: session.user.id,
-        email: session.user.email!,
-        role: user[0].role,
-        name: user[0].displayName,
-        tenantId: user[0].tenantId
+        id: user.id,
+        email: user.email!,
+        role: userProfile[0].role,
+        name: userProfile[0].displayName,
+        tenantId: userProfile[0].tenantId
       }
     }
   } catch (error) {

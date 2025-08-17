@@ -47,14 +47,15 @@ export default function RegisterPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              userId: result.data.user.id,
-              email: result.data.user.email,
               displayName: name
             })
           })
           
           if (!response.ok) {
-            console.error('Failed to create user profile')
+            const errorText = await response.text()
+            console.error('Failed to create user profile:', response.status, errorText)
+            setError(`Profile creation failed: ${errorText}`)
+            return
           }
         } catch (error) {
           console.error('Error creating user profile:', error)

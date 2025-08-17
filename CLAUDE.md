@@ -9,7 +9,7 @@ This platform has evolved from a single-school band program template into a **mu
 ## Tech Stack
 - **Frontend**: Next.js 15.3.4 + TypeScript + shadcn/ui
 - **Database**: PostgreSQL + Drizzle ORM (migrated from SQLite/Prisma)
-- **Authentication**: Better Auth (multi-role: Parents, Directors, Boosters)
+- **Authentication**: Supabase Auth (multi-role: Parents, Directors, Boosters)
 - **Payments**: Stripe Connect (per-tenant accounts) + Direct Stripe integration
 - **Email**: Resend (transactional emails for payments and notifications)
 - **Infrastructure**: Supabase (production) + Docker deployment
@@ -120,7 +120,7 @@ All business logic tables include `tenantId` foreign key with cascade deletes:
 - **`stripeCache`** - t3dotgg pattern caching for payment data
 - **`messages`** - Tenant-specific communication/announcements
 
-### **Authentication Tables (Better Auth)**
+### **Authentication Tables (Supabase Auth)**
 - **`sessions`**, **`accounts`**, **`verifications`** - Multi-tenant authentication support
 
 ## 💰 SaaS Business Model & Revenue
@@ -147,7 +147,7 @@ All business logic tables include `tenantId` foreign key with cascade deletes:
 
 ### ✅ **COMPLETED - Production Ready Core**
 1. **Multi-tenant database architecture** - PostgreSQL + Drizzle with full tenant isolation
-2. **Authentication system** - Better Auth with Parent/Director/Booster roles
+2. **Authentication system** - Supabase Auth with Parent/Director/Booster roles
 3. **Payment system** - Complete t3dotgg pattern with Stripe integration (ready for Connect)
 4. **Student management** - Registration, fuzzy matching, parent-student linking
 5. **Email notifications** - Resend integration for payment confirmations and admin alerts
@@ -194,7 +194,7 @@ All business logic tables include `tenantId` foreign key with cascade deletes:
 
 ### **Infrastructure Security**
 - **PostgreSQL security**: Supabase-managed database with RLS (Row Level Security)
-- **Authentication**: Better Auth with secure session management
+- **Authentication**: Supabase Auth with secure session management
 - **Email security**: Resend integration with proper SPF/DKIM setup
 - **Environment isolation**: Separate production/staging environments
 
@@ -263,7 +263,7 @@ All business logic tables include `tenantId` foreign key with cascade deletes:
 - `Tabs` - Switch between admin sections
 
 ### Phase 2: Authentication & User Management ✅ COMPLETED
-1. **✅ Integrate Better Auth authentication** - Better Auth configured for parents, directors, and boosters
+1. **✅ Integrate Supabase Auth authentication** - Supabase Auth configured for parents, directors, and boosters
 2. **✅ Create unified dashboard** with role-based content (`/dashboard`)
 3. **✅ Build parent dashboard component** - Student cards, add student form, real-time updates
 4. **✅ Build director dashboard component** - Student roster table, admin overview cards
@@ -390,7 +390,7 @@ All business logic tables include `tenantId` foreign key with cascade deletes:
 - `/api/students` - Get parent's students
 - `/api/director/students` - Get all students for director
 - `/api/user/update-role` - Update user role for testing
-- `/api/auth/[...all]` - Better Auth endpoints
+- `/api/auth/[...all]` - Legacy Better Auth endpoints (migrated to Supabase)
 
 **🎯 Current System Architecture**
 
@@ -672,7 +672,7 @@ When payment/enrollment data shows inconsistencies:
 - **Core payment system fully functional** - Parents can enroll and pay, admin oversight works
 - **Multi-tenant database schema complete** - All tables have tenant isolation
 - **Email notifications working** - Payment confirmations and admin alerts  
-- **Authentication system scalable** - Better Auth supports multi-tenant scenarios
+- **Authentication system scalable** - Supabase Auth supports multi-tenant scenarios
 
 **🚀 TIME TO FIRST PAYING CUSTOMER: 1-2 weeks**
 

@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Calendar, CreditCard, FileText, LogIn, LogOut, LayoutDashboard, Music, Heart } from "lucide-react"
-import { signOut } from "@/lib/auth-client"
+import { Calendar, CreditCard, FileText, LogIn, LogOut, LayoutDashboard, Music, Heart, UserPlus } from "lucide-react"
+import { signOut, supabase } from "@/lib/auth-client"
 
 import {
   Sidebar,
@@ -50,13 +50,27 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  // TODO: Implement Supabase useSession hook
-  const session = null // Temporary during migration
+  const [session, setSession] = React.useState<any>(null)
+
+  React.useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleLogout = async () => {
     try {
       await signOut()
-      // No page reload needed - better-auth handles this gracefully
+      // Refresh page after logout to ensure clean state
+      window.location.href = '/'
     } catch (error) {
       console.error('Logout error:', error)
     }
@@ -108,12 +122,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <span>Logout</span>
               </SidebarMenuButton>
             ) : (
-              <SidebarMenuButton asChild>
-                <Link href="/login">
-                  <LogIn />
-                  <span>Login</span>
-                </Link>
-              </SidebarMenuButton>
+              <>
+                <SidebarMenuButton asChild>
+                  <Link href="/login">
+                    <LogIn />
+                    <span>Login</span>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuButton asChild>
+                  <Link href="/register">
+                    <UserPlus />
+                    <span>Sign Up</span>
+                  </Link>
+                </SidebarMenuButton>
+              </>
             )}
           </SidebarMenuItem>
         </SidebarMenu>
