@@ -5,7 +5,11 @@ export const tenants = pgTable('tenants', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
+  status: text('status').notNull().default('pending'), // pending, active, inactive, reserved
+  directorEmail: text('director_email'),
+  directorName: text('director_name'),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
 })
 
 export const memberships = pgTable('memberships', {
@@ -32,6 +36,18 @@ export const stripeSyncLog = pgTable('stripe_sync_log', {
   subjectId: text('subject_id').notNull(),
   payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
   result: jsonb('result').$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
+})
+
+export const inviteCodes = pgTable('invite_codes', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  code: text('code').notNull().unique(),
+  schoolName: text('school_name').notNull(),
+  directorEmail: text('director_email').notNull(),
+  used: boolean('used').notNull().default(false),
+  usedAt: timestamp('used_at', { withTimezone: false }),
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: false }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
 })
 

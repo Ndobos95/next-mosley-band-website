@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
+export async function updateSession(request: NextRequest, response?: NextResponse) {
+  let supabaseResponse = response || NextResponse.next({
     request,
   })
 
@@ -16,9 +16,11 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
+          if (!response) {
+            supabaseResponse = NextResponse.next({
+              request,
+            })
+          }
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -35,12 +37,20 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/register') &&
-    !request.nextUrl.pathname.startsWith('/auth')
-  ) {
+  // Define public routes that don't require authentication
+  const pathname = request.nextUrl.pathname
+  const isPublicRoute = 
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/signup') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/api/internal/') ||  // Internal APIs for middleware
+    pathname.startsWith('/api/subdomain/') ||  // Subdomain check API
+    pathname.startsWith('/api/schools/create') ||  // School creation (has its own auth)
+    pathname.startsWith('/api/health/')  // Health checks
+
+  if (!user && !isPublicRoute) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone()
     url.pathname = '/login'
