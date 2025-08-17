@@ -110,13 +110,15 @@ export async function validateInviteCode(code: string): Promise<ValidationResult
  */
 export async function markInviteCodeAsUsed(code: string, tenantId: string) {
   try {
+    const updateData: any = {
+      used: true,
+      usedAt: new Date(),
+      tenantId,
+    }
+    
     await db
       .update(inviteCodes)
-      .set({
-        used: true,
-        usedAt: new Date(),
-        tenantId,
-      })
+      .set(updateData)
       .where(
         and(
           eq(inviteCodes.code, code),

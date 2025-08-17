@@ -184,7 +184,7 @@ export const donations = pgTable('donations', {
 })
 
 export const messages = pgTable('messages', {
-  id: integer('id').primaryKey(),
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
