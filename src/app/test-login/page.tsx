@@ -99,7 +99,7 @@ export default function TestLoginPage() {
           <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div className="font-medium text-yellow-800">🔍 What to expect:</div>
             <div className="text-sm text-yellow-700 mt-1">
-              After clicking "Test Login", you should be redirected to the tenant's subdomain dashboard.
+              After clicking &quot;Test Login&quot;, you should be redirected to the tenant&apos;s subdomain dashboard.
               For example, logging in as director@riverside.edu should redirect you to riverside.localhost:3000/dashboard
             </div>
           </div>

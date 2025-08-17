@@ -1,6 +1,6 @@
 import { updateSession } from '@/lib/supabase/middleware'
 import { NextRequest, NextResponse } from 'next/server'
-import { parseHostname, getCurrentEnvironment, getTenantUrl } from '@/lib/environment'
+import { parseHostname } from '@/lib/environment'
 import { createClient } from '@/lib/supabase/server'
 
 export async function middleware(request: NextRequest) {
@@ -145,7 +145,7 @@ export async function middleware(request: NextRequest) {
       if (isProtectedRoute) {
         try {
           const supabaseResponse = await updateSession(request, nextResponse)
-          const supabase = createClient()
+          const supabase = await createClient()
           const { data: { user } } = await supabase.auth.getUser()
           
           if (user) {
