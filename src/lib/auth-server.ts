@@ -4,9 +4,8 @@ import { redirect } from "next/navigation"
 
 export async function getSession() {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers()
-    })
+    // TODO: Replace with Supabase Auth
+    const session = null // Temporary during migration
     return session
   } catch (error) {
     console.error("Error getting session:", error)

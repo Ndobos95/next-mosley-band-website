@@ -38,19 +38,6 @@ export const stripeSyncLog = pgTable('stripe_sync_log', {
 // Domain tables (migrated from Prisma/SQLite) - Postgres
 import { integer, boolean } from 'drizzle-orm/pg-core'
 
-export const users = pgTable('users', {
-  id: text('id').primaryKey(),
-  name: text('name'),
-  email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').notNull().default(false),
-  image: text('image'),
-  role: text('role').notNull().default('PARENT'),
-  stripeCustomerId: text('stripe_customer_id'),
-  isGuestAccount: boolean('is_guest_account').notNull().default(false),
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
-})
-
 export const students = pgTable('students', {
   id: text('id').primaryKey(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -188,39 +175,19 @@ export const messages = pgTable('messages', {
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
 })
 
-// Better Auth core tables (pluralized)
-export const sessions = pgTable('sessions', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull(),
-  token: text('token').notNull(),
-  expiresAt: timestamp('expires_at', { withTimezone: false }).notNull(),
-  ipAddress: text('ip_address'),
-  userAgent: text('user_agent'),
+// Supabase Auth integration - user profiles with tenant relationships
+export const userProfiles = pgTable('user_profiles', {
+  id: uuid('id').primaryKey(), // matches auth.users.id
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  role: text('role').notNull().default('PARENT'), // PARENT, DIRECTOR, BOOSTER
+  displayName: text('display_name'),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
 })
 
-export const accounts = pgTable('accounts', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull(),
-  accountId: text('account_id').notNull(),
-  providerId: text('provider_id').notNull(),
-  accessToken: text('access_token'),
-  refreshToken: text('refresh_token'),
-  accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: false }),
-  refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: false }),
-  scope: text('scope'),
-  idToken: text('id_token'),
-  password: text('password'),
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
-})
+// Note: Supabase Auth tables (auth.users, auth.sessions, etc.) are managed automatically
+// We only need our custom user_profiles table to link users to tenants
 
-export const verifications = pgTable('verifications', {
-  id: text('id').primaryKey(),
-  identifier: text('identifier').notNull(),
-  value: text('value').notNull(),
-  expiresAt: timestamp('expires_at', { withTimezone: false }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
-})
+// Temporary compatibility export - use userProfiles for new code
+export const users = userProfiles // Alias for backward compatibility during migration

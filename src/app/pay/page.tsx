@@ -10,9 +10,8 @@ import { PaymentPageContent } from "@/components/payment-page-content"
 export const dynamic = 'force-dynamic'
 
 export default async function PaymentPage() {
-  const session = await auth.api.getSession({
-    headers: await headers()
-  })
+  // TODO: Replace with Supabase Auth
+  const session = null // Temporary during migration
   
   const tenant = await resolveTenantFromHeaders(await headers())
   if (!tenant) throw new Error('Tenant not found')

@@ -22,10 +22,7 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const result = await authClient.signIn.email({
-        email,
-        password
-      })
+      const result = await authClient.signIn(email, password)
 
       if (result.error) {
         setError(result.error.message || "An error occurred")

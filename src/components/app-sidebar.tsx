@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { Calendar, CreditCard, FileText, LogIn, LogOut, LayoutDashboard, Music, Heart } from "lucide-react"
-import { useSession, signOut } from "@/lib/auth-client"
+import { signOut } from "@/lib/auth-client"
 
 import {
   Sidebar,
@@ -50,7 +50,8 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data: session } = useSession()
+  // TODO: Implement Supabase useSession hook
+  const session = null // Temporary during migration
 
   const handleLogout = async () => {
     try {

@@ -36,11 +36,7 @@ export default function RegisterPage() {
     }
 
     try {
-      const result = await authClient.signUp.email({
-        email,
-        password,
-        name
-      })
+      const result = await authClient.signUp(email, password)
 
       if (result.error) {
         setError(result.error.message || "An error occurred")

@@ -1,20 +1,13 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireTenant } from '@/lib/auth-context'
 import { db } from '@/lib/drizzle'
 import { studentParents, students } from '@/db/schema'
 import { and, desc, eq, isNull, ne } from 'drizzle-orm'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user session
-    const session = await auth.api.getSession({
-      headers: request.headers
-    })
-
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Get authenticated user and tenant context
+    const { user, tenant } = await requireTenant()
 
     // Fetch parent's students (exclude rejected ones)
     const relationships = await db
@@ -28,7 +21,12 @@ export async function GET(request: NextRequest) {
       })
       .from(studentParents)
       .leftJoin(students, eq(studentParents.studentId, students.id))
-      .where(and(eq(studentParents.tenantId, session.user.tenantId as string), eq(studentParents.userId, session.user.id), isNull(studentParents.deletedAt), ne(studentParents.status, 'REJECTED')))
+      .where(and(
+        eq(studentParents.tenantId, tenant.id), 
+        eq(studentParents.userId, user.id), 
+        isNull(studentParents.deletedAt), 
+        ne(studentParents.status, 'REJECTED')
+      ))
       .orderBy(desc(studentParents.createdAt))
 
     const studentsList = relationships.map(sp => ({
@@ -43,6 +41,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ students: studentsList })
   } catch (error) {
     console.error('Error fetching students:', error)
+    
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

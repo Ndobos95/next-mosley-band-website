@@ -1,70 +1,14 @@
-import { betterAuth } from "better-auth"
-import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { db } from "./drizzle"
-import { Resend } from "resend"
+// Legacy auth file - replaced with Supabase Auth
+// This file is kept temporarily to avoid breaking imports during migration
+// TODO: Remove this file once all imports are updated
 
-console.log('🚀 Initializing better-auth...')
+console.log('⚠️ Legacy auth.ts - Use Supabase Auth instead')
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-
-export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    // If your table names are plural, set usePlural: true or provide a schema mapping
-    usePlural: true,
-  }),
-  
-  logger: {
-    level: "debug"
-  },
-  
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: false, // Temporarily disable to test basic auth
-    sendEmailVerification: async (user: { email: string }, url: string) => {
-      // Send verification email via Resend
-      if (!resend) {
-        console.warn('⚠️ Resend not configured, skipping email verification')
-        return
-      }
-      await resend.emails.send({
-        from: process.env.FROM_EMAIL || "noreply@localhost",
-        to: user.email,
-        subject: "Verify your email address",
-        html: `
-          <h1>Welcome to the Band Program!</h1>
-          <p>Please click the link below to verify your email address:</p>
-          <a href="${url}">Verify Email</a>
-          <p>If you didn't create an account, you can safely ignore this email.</p>
-        `
-      })
-    }
-  },
-
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || ""
-    }
-  },
-
-  session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24 // 1 day
-  },
-
-  user: {
-    additionalFields: {
-      role: {
-        type: "string",
-        defaultValue: "PARENT",
-        validation: (value: string) => {
-          return value === "PARENT" || value === "DIRECTOR" || value === "BOOSTER"
-        }
-      }
+// Export empty object to prevent build errors
+export const auth = {
+  api: {
+    getSession: () => {
+      throw new Error('Legacy Better Auth - Use Supabase Auth instead')
     }
   }
-})
-
-console.log('✅ Better-auth initialized successfully')
+}

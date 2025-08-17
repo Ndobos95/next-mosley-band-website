@@ -3,6 +3,7 @@ config({ path: '.env.local' })
 
 import { db } from './src/lib/drizzle'
 import { tenants, paymentCategories } from './src/db/schema'
+import { eq } from 'drizzle-orm'
 
 async function seedTenant() {
   try {
@@ -14,10 +15,19 @@ async function seedTenant() {
 
     console.log('✅ Default tenant seeded:', tenant || 'Already exists')
     
+    // Get the tenant ID for seeding categories
+    const [existingTenant] = await db.select().from(tenants).where(eq(tenants.slug, 'default')).limit(1)
+    const tenantId = tenant?.id || existingTenant?.id
+    
+    if (!tenantId) {
+      throw new Error('No tenant found for seeding categories')
+    }
+
     // Also seed basic payment categories
     const categories = await db.insert(paymentCategories).values([
       {
         id: 'BAND_FEES',
+        tenantId: tenantId,
         name: 'Band Fees',
         description: 'Annual band participation fees',
         fullAmount: 25000,
@@ -26,6 +36,7 @@ async function seedTenant() {
       },
       {
         id: 'SPRING_TRIP', 
+        tenantId: tenantId,
         name: 'Spring Trip',
         description: 'Spring band trip expenses',
         fullAmount: 90000,
@@ -34,6 +45,7 @@ async function seedTenant() {
       },
       {
         id: 'EQUIPMENT',
+        tenantId: tenantId,
         name: 'Equipment', 
         description: 'Band equipment and supplies',
         fullAmount: 15000,
