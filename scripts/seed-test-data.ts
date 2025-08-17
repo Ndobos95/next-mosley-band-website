@@ -9,7 +9,7 @@ import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 // Now import everything else after env is loaded
-import { inviteCodes, tenants, users, memberships, students } from '../db/schema';
+import { inviteCodes, tenants, users, memberships, students } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -173,7 +173,8 @@ async function seedTestData() {
         const [director] = await db.insert(users).values({
           id: authUser.user.id,
           email: directorEmail,
-          name: `${tenant.name} Director`,
+          displayName: `${tenant.name} Director`,
+          role: 'DIRECTOR',
           tenantId: tenant.id,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -218,7 +219,8 @@ async function seedTestData() {
         const [booster] = await db.insert(users).values({
           id: authUser.user.id,
           email: boosterEmail,
-          name: `${tenant.name} Booster`,
+          displayName: `${tenant.name} Booster`,
+          role: 'BOOSTER',
           tenantId: tenant.id,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -264,7 +266,8 @@ async function seedTestData() {
           const [parent] = await db.insert(users).values({
             id: authUser.user.id,
             email: parentEmail,
-            name: `${tenant.name} Parent ${i}`,
+            displayName: `${tenant.name} Parent ${i}`,
+            role: 'PARENT',
             tenantId: tenant.id,
             createdAt: new Date(),
             updatedAt: new Date(),

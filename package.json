@@ -13,8 +13,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "seed": "tsx src/scripts/seed-test-data.ts",
-    "test:isolation": "tsx src/scripts/test-tenant-isolation.ts"
+    "seed": "tsx scripts/seed-test-data.ts",
+    "test:isolation": "tsx scripts/test-tenant-isolation.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
