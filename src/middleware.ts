@@ -19,8 +19,8 @@ export async function middleware(request: NextRequest) {
     pathname
   })
   
-  // Skip middleware for API routes and static files
-  if (pathname.startsWith('/api/') || pathname.startsWith('/_next/')) {
+  // Skip middleware for static files only
+  if (pathname.startsWith('/_next/')) {
     return await updateSession(request)
   }
   
@@ -116,7 +116,27 @@ export async function middleware(request: NextRequest) {
       return NextResponse.rewrite(new URL('/maintenance', request.url))
     }
     
-      // Valid tenant - set context headers and check user context for protected routes
+      // Valid tenant - set context headers
+      // For API routes, we need to pass tenant context differently
+      if (pathname.startsWith('/api/')) {
+        const response = NextResponse.next({
+          request: {
+            headers: new Headers(request.headers),
+          }
+        })
+        response.headers.set('x-tenant-id', tenant.id)
+        response.headers.set('x-tenant-slug', tenant.slug)
+        response.headers.set('x-tenant-status', tenant.status)
+        response.headers.set('x-environment', parsed.environment)
+        
+        // Also try to set on the request for API routes
+        request.headers.set('x-tenant-id', tenant.id)
+        request.headers.set('x-tenant-slug', tenant.slug)
+        
+        return await updateSession(request, response)
+      }
+      
+      // For non-API routes, set response headers
       const nextResponse = NextResponse.next()
       nextResponse.headers.set('x-tenant-id', tenant.id)
       nextResponse.headers.set('x-tenant-slug', tenant.slug)
@@ -136,7 +156,7 @@ export async function middleware(request: NextRequest) {
       ]
       
       const isPublicRoute = publicRoutes.some(route => 
-        pathname === route || pathname.startsWith('/api/')
+        pathname === route
       )
       
       // ALL other routes need tenant enforcement for authenticated users

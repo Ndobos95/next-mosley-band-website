@@ -45,6 +45,7 @@ export async function updateSession(request: NextRequest, response?: NextRespons
     pathname.startsWith('/register') ||
     pathname.startsWith('/signup') ||
     pathname.startsWith('/auth') ||
+    pathname.startsWith('/api/auth/') ||  // Auth API routes (create-profile, etc.)
     pathname.startsWith('/api/internal/') ||  // Internal APIs for middleware
     pathname.startsWith('/api/subdomain/') ||  // Subdomain check API
     pathname.startsWith('/api/schools/create') ||  // School creation (has its own auth)
