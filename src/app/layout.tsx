@@ -4,11 +4,9 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { config } from "@/lib/config";
 import "./startup";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import { TenantIndicator } from "@/components/tenant-indicator";
 import { TenantContextEnforcer } from "@/components/tenant-context-enforcer";
+import { LayoutWrapper } from "@/components/layout-wrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,18 +45,9 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider>
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-              <header className="flex h-16 shrink-0 items-center gap-2 px-4">
-                <SidebarTrigger className="-ml-1" />
-                <Separator orientation="vertical" className="mr-2 h-6" />
-              </header>
-              <main className="flex-1">
-                {children}
-              </main>
-            </SidebarInset>
-          </SidebarProvider>
+          <LayoutWrapper>
+            {children}
+          </LayoutWrapper>
           <TenantIndicator />
           <TenantContextEnforcer />
         </ThemeProvider>
