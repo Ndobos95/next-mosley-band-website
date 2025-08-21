@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const environment = getCurrentEnvironment()
     
     // Check if subdomain is in reserved list or has invalid prefixes
-    const formatAvailable = checkAvailability(subdomain, environment)
+    const formatAvailable = checkAvailability(subdomain)
     if (!formatAvailable) {
       return NextResponse.json({
         available: false,

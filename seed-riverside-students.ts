@@ -68,8 +68,6 @@ async function seedRiversideStudents() {
         tenantId,
         name: student.name,
         instrument: student.instrument,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       }).onConflictDoNothing()
       
       console.log(`Added student: ${student.name} - ${student.instrument}`)

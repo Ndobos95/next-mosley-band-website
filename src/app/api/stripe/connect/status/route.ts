@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       if (newStatus === 'active') {
         await db
           .update(tenants)
-          .set({ status: 'active' })
+          .set({ status: 'active' } as any)
           .where(eq(tenants.id, tenantId))
       }
     }

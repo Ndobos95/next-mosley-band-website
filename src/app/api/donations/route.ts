@@ -73,11 +73,6 @@ export async function GET(request: NextRequest) {
             amount: cs.amount_total || 0,
             notes: cs.metadata!.message,
             stripePaymentIntentId: cs.payment_intent as string,
-            status: 'COMPLETED',
-            isGuest: true,
-            userId: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
           })
           console.log(`✅ Saved donation to database: ${cs.payment_intent}`)
         } else {

@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Update the user's role in the userProfiles table
     await db
       .update(userProfiles)
-      .set({ role, updatedAt: new Date() })
+      .set({ role, updatedAt: new Date() } as any)
       .where(eq(userProfiles.id, user.id))
 
     return NextResponse.json({ 
