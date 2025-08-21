@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/drizzle'
 import { students, users, studentParents, studentPaymentEnrollments, paymentCategories, guestPayments } from '@/db/schema'
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { resolveTenant, getRequestOrigin } from '@/lib/tenancy'
 import { stripe } from '@/lib/stripe'
 import { fuzzyMatch } from '@/lib/fuzzy-match'

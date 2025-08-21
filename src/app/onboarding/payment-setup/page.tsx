@@ -54,14 +54,14 @@ export default function PaymentSetupPage() {
             Payment Processing Setup Required
           </CardTitle>
           <CardDescription>
-            To start accepting payments, you'll need to set up your school's payment processing account.
+            To start accepting payments, you&apos;ll need to set up your school&apos;s payment processing account.
             This takes about 5-10 minutes.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* What You'll Need */}
           <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
-            <h3 className="font-semibold mb-2">What you'll need:</h3>
+            <h3 className="font-semibold mb-2">What you&apos;ll need:</h3>
             <ul className="space-y-1 text-sm">
               <li>• Your email and phone number</li>
               <li>• Bank account for deposits (routing and account number)</li>
