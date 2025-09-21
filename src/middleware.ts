@@ -47,17 +47,18 @@ export async function middleware(request: NextRequest) {
     // Check if this is a non-public route that might need tenant redirection
     const publicRoutes = [
       '/',
-      '/login', 
+      '/login',
       '/register',
       '/signup',
       '/about',
-      '/contact', 
+      '/contact',
       '/pricing',
-      '/test-login'
+      '/test-login',
+      '/admin/invites'  // Admin invite generation page
     ]
     
-    const isPublicRoute = publicRoutes.some(route => 
-      pathname === route || pathname.startsWith('/api/')
+    const isPublicRoute = publicRoutes.some(route =>
+      pathname === route || pathname.startsWith('/api/') || pathname.startsWith('/admin/')
     )
     
     // For non-public routes, let the client-side enforcer handle redirection
@@ -146,13 +147,14 @@ export async function middleware(request: NextRequest) {
       // Define routes that DON'T need tenant enforcement (public/global routes)
       const publicRoutes = [
         '/',
-        '/login', 
+        '/login',
         '/register',
         '/signup',
         '/about',
-        '/contact', 
+        '/contact',
         '/pricing',
-        '/test-login'
+        '/test-login',
+        '/admin/invites'  // Admin invite generation page
       ]
       
       const isPublicRoute = publicRoutes.some(route => 
