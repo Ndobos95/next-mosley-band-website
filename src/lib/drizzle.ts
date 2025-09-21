@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
+import * as schema from '@/db/schema'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) {
@@ -12,7 +13,7 @@ const globalForDrizzle = globalThis as unknown as {
 }
 
 export const pgPool = globalForDrizzle.__pgPool ?? (databaseUrl ? new Pool({ connectionString: databaseUrl, ssl: { rejectUnauthorized: false } }) : undefined)
-export const db = globalForDrizzle.__drizzleDb ?? (pgPool ? drizzle(pgPool) : undefined as unknown as ReturnType<typeof drizzle>)
+export const db = globalForDrizzle.__drizzleDb ?? (pgPool ? drizzle(pgPool, { schema }) : undefined as unknown as ReturnType<typeof drizzle>)
 
 if (process.env.NODE_ENV !== 'production') {
   if (pgPool) globalForDrizzle.__pgPool = pgPool

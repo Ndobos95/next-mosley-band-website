@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if subdomain is reserved or has invalid prefixes for environment
-    const formatValid = isSubdomainAvailable(schoolData.subdomain, environment)
+    const formatValid = isSubdomainAvailable(schoolData.subdomain)
     if (!formatValid) {
       return NextResponse.json(
         { error: 'This subdomain is reserved or not allowed' },

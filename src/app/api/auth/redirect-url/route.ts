@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/drizzle'
 import { memberships, tenants } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { getCurrentEnvironment, getTenantUrl } from '@/lib/environment'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
     const { data: { user }, error } = await supabase.auth.getUser()

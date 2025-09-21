@@ -1,4 +1,37 @@
-export default function Home() {
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { db } from '@/lib/drizzle'
+import { tenants } from '@/db/schema'
+import { eq } from 'drizzle-orm'
+
+async function getTenantFromHeaders() {
+  const headersList = await headers()
+  const tenantId = headersList.get('x-tenant-id')
+  const tenantSlug = headersList.get('x-tenant-slug')
+  
+  if (tenantId && tenantSlug) {
+    // We're on a tenant subdomain, fetch tenant details
+    const tenant = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1)
+    
+    return tenant[0] || null
+  }
+  
+  return null
+}
+
+export default async function Home() {
+  const tenant = await getTenantFromHeaders()
+  
+  // If we're on a tenant subdomain, redirect to login
+  if (tenant) {
+    redirect('/login')
+  }
+  
+  // Otherwise show the main SaaS landing page
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-16">

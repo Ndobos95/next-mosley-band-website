@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DirectorStudentTable } from "@/components/director-student-table"
 import { StudentsPaymentsOverview } from "@/components/students-payments-overview"
 import { DonationsOverview } from "@/components/donations-overview"
+import { PaymentSetupBanner } from "@/components/payment-setup-banner"
 import { Heart } from "lucide-react"
 
 interface DirectorDashboardProps {
@@ -42,6 +43,7 @@ export function DirectorDashboard({ user }: DirectorDashboardProps) {
 
   return (
     <div className="space-y-6">
+      <PaymentSetupBanner userRole={user.role} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Welcome, {user.name}!</h1>

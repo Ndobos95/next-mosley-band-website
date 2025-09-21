@@ -70,7 +70,7 @@ export function SchoolSignupForm({ invite }: SchoolSignupFormProps) {
           available: result.available, 
           error: result.error 
         })
-      } catch (err) {
+      } catch {
         setSubdomainStatus({ 
           checking: false, 
           available: false, 

@@ -1,9 +1,9 @@
 // @ts-nocheck
-import { NextRequest, NextResponse } from 'next/server';
-import { getSession, requireAuth, requireRole } from '@/lib/auth-server';
+import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth-server';
 import { getUserPaymentHistory, syncStripeDataToUser } from '@/lib/stripe-cache';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getSession();
     

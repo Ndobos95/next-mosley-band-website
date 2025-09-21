@@ -1,24 +1,38 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/drizzle'
-import { donations as donationsTable } from '@/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
-import { resolveTenant } from '@/lib/tenancy'
-import { getSession, requireAuth, requireRole } from '@/lib/auth-server'
+import { donations as donationsTable, userProfiles } from '@/db/schema'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { stripe } from '@/lib/stripe'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    })
+    // Get the current user session from Supabase
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    // Only directors and boosters can view donation data
-    if (!session?.user || !['DIRECTOR', 'BOOSTER'].includes(session.user.role)) {
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user profile to check role
+    const profile = await db
+      .select()
+      .from(userProfiles)
+      .where(eq(userProfiles.id, user.id))
+      .limit(1)
+
+    if (!profile[0] || !['DIRECTOR', 'BOOSTER'].includes(profile[0].role)) {
       return NextResponse.json(
         { error: 'Unauthorized - Director or Booster access required' },
         { status: 403 }
       )
+    }
+
+    // Get tenant from request headers
+    const tenantId = request.headers.get('x-tenant-id')
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
     }
 
     // t3dotgg pattern: Sync donation data directly from Stripe when needed
@@ -53,17 +67,12 @@ export async function GET(request: NextRequest) {
           // Create new donation record
           await db.insert(donationsTable).values({
             id: crypto.randomUUID(),
-            tenantId: session.user.tenantId as string, // populated by adapter if available
+            tenantId: tenantId, // Use the tenantId from request headers
             parentName: cs.metadata!.donorName,
             parentEmail: cs.metadata!.donorEmail,
             amount: cs.amount_total || 0,
             notes: cs.metadata!.message,
             stripePaymentIntentId: cs.payment_intent as string,
-            status: 'COMPLETED',
-            isGuest: true,
-            userId: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
           })
           console.log(`✅ Saved donation to database: ${cs.payment_intent}`)
         } else {
@@ -75,11 +84,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Step 3: Return database records (source of truth)
-    const tenant = await resolveTenant(request)
     const donations = await db
       .select()
       .from(donationsTable)
-      .where(eq(donationsTable.tenantId, tenant?.id ?? ''))
+      .where(sql`${donationsTable.tenantId} = ${tenantId}::uuid`)
       .orderBy(desc(donationsTable.createdAt))
 
     // Calculate totals

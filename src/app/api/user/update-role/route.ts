@@ -1,18 +1,16 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
-import { getSession, requireAuth, requireRole } from '@/lib/auth-server'
+import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/drizzle'
-import { users } from '@/db/schema'
+import { userProfiles } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the current user session
-    const session = await auth.api.getSession({
-      headers: request.headers
-    })
+    // Get the current user session from Supabase
+    const supabase = await createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (error || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -23,11 +21,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    // Update the user's role in the database
-    await db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, session.user.id))
-
-    // Note: Better Auth will pick up the database change on next session check
-    // The page reload will refresh the session with the new role
+    // Update the user's role in the userProfiles table
+    await db
+      .update(userProfiles)
+      .set({ role, updatedAt: new Date() } as any)
+      .where(eq(userProfiles.id, user.id))
 
     return NextResponse.json({ 
       success: true, 

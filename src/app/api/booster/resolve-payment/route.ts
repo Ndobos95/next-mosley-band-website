@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/drizzle'
 import { guestPayments, students, users, studentParents, studentPaymentEnrollments, payments as paymentsTable, paymentCategories } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getSession, requireAuth, requireRole } from '@/lib/auth-server'
+import { getSession } from '@/lib/auth-server'
 import { z } from 'zod'
 
 const resolvePaymentSchema = z.object({

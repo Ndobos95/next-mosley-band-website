@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+// import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { authClient } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const router = useRouter()
+  // const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,33 +36,21 @@ export default function RegisterPage() {
     }
 
     try {
+      // Clear any existing session first to avoid refresh token conflicts
+      await authClient.signOut()
+      
       const result = await authClient.signUp(email, password)
 
       if (result.error) {
-        setError(result.error.message || "An error occurred")
-      } else if (result.data.user) {
-        // Create user profile after successful registration
-        try {
-          const response = await fetch('/api/auth/create-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              displayName: name
-            })
-          })
-          
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error('Failed to create user profile:', response.status, errorText)
-            setError(`Profile creation failed: ${errorText}`)
-            return
-          }
-        } catch (error) {
-          console.error('Error creating user profile:', error)
+        if (result.error.message?.includes('already registered') || result.error.message?.includes('User already registered')) {
+          setError(`This email is already registered. Please log in instead.`)
+        } else {
+          setError(result.error.message || "An error occurred")
         }
-        
-        // Redirect to dashboard
-        router.push("/dashboard")
+      } else if (result.data.user) {
+        // With email confirmation enabled, no session until user clicks email link
+        setError('Registration successful! Please check your email for a confirmation link, then return to log in.')
+        return
       }
     } catch {
       setError("An unexpected error occurred. Please try again.")

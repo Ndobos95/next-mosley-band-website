@@ -226,7 +226,7 @@ export function getTenantFilter(environment: Environment = getCurrentEnvironment
 /**
  * Check if a subdomain is available for use
  */
-export function isSubdomainAvailable(subdomain: string, environment: Environment = getCurrentEnvironment()): boolean {
+export function isSubdomainAvailable(subdomain: string): boolean {
   // Check reserved list
   if (RESERVED_SUBDOMAINS.includes(subdomain)) {
     return false
