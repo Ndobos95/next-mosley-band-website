@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { db } from '@/lib/drizzle';
-import { userProfiles, students, studentParents, studentPaymentEnrollments, paymentCategories, payments as paymentsTable, guestPayments, stripeCache } from '@/db/schema';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { prisma } from '@/lib/prisma';
 import { syncStripeDataToUser } from '@/lib/stripe-cache';
 
 export async function GET(request: NextRequest) {
@@ -17,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     // Check if user is director or booster
     const profile = (
-      await db.select({ role: userProfiles.role }).from(userProfiles).where(eq(userProfiles.id, user.id)).limit(1)
+      await prisma.select({ role: userProfiles.role }).from(userProfiles).where(eq(userProfiles.id, user.id)).limit(1)
     )[0];
 
     if (!profile || !['DIRECTOR', 'BOOSTER'].includes(profile.role)) {

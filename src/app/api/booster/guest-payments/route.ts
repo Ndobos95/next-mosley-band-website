@@ -1,9 +1,9 @@
 // @ts-nocheck
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/drizzle'
-import { students, users, studentParents, studentPaymentEnrollments, paymentCategories, guestPayments } from '@/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { resolveTenant, getRequestOrigin } from '@/lib/tenancy'
 import { stripe } from '@/lib/stripe'
 import { fuzzyMatch } from '@/lib/fuzzy-match'
@@ -50,7 +50,7 @@ async function handleHighConfidenceMatch(data: {
   try {
     // Check if parent already has an account
     let user = (
-      await db.select().from(users).where(eq(users.email, data.parentEmail)).limit(1)
+      await prisma.select().from(users).where(eq(users.email, data.parentEmail)).limit(1)
     )[0]
     
     // If no user exists, create a ghost account
@@ -84,7 +84,7 @@ async function handleHighConfidenceMatch(data: {
     
     if (!existingRelationship) {
       // Create parent-student relationship
-      await db.insert(studentParents).values({
+      await prisma.insert(studentParents).values({
         id: crypto.randomUUID(),
         userId: user.id,
         studentId: data.studentId,
@@ -103,7 +103,7 @@ async function handleHighConfidenceMatch(data: {
     
     if (!enrollment) {
       const category = (
-        await db.select().from(paymentCategories).where(eq(paymentCategories.id, data.categoryId)).limit(1)
+        await prisma.select().from(paymentCategories).where(eq(paymentCategories.id, data.categoryId)).limit(1)
       )[0]
       
       if (category) {
@@ -145,7 +145,7 @@ async function handleLowConfidenceMatch(data: {
 }) {
   try {
     // Store as guest payment for booster review - no enrollment yet
-    await db.insert(guestPayments).values({
+    await prisma.insert(guestPayments).values({
       id: crypto.randomUUID(),
       tenantId: tenant.id,
       parentName: data.parentName,
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
     
     // Verify payment category exists and validate amount
     const category = (
-      await db.select().from(paymentCategories).where(eq(paymentCategories.id, validatedData.categoryId)).limit(1)
+      await prisma.select().from(paymentCategories).where(eq(paymentCategories.id, validatedData.categoryId)).limit(1)
     )[0]
     
     if (!category || !category.active) {
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
       
       // Get the ghost account's Stripe customer ID for checkout
       const ghostUser = (
-        await db.select().from(users).where(eq(users.email, validatedData.parentEmail)).limit(1)
+        await prisma.select().from(users).where(eq(users.email, validatedData.parentEmail)).limit(1)
       )[0]
       stripeCustomerId = ghostUser?.stripeCustomerId || undefined
     } else {

@@ -1,9 +1,9 @@
 // @ts-nocheck
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/drizzle'
-import { guestPayments, students, users, studentParents, studentPaymentEnrollments, payments as paymentsTable, paymentCategories } from '@/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { getSession } from '@/lib/auth-server'
 import { z } from 'zod'
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Verify the student exists
     const student = (
-      await db.select().from(students).where(eq(students.id, validatedData.studentId)).limit(1)
+      await prisma.select().from(students).where(eq(students.id, validatedData.studentId)).limit(1)
     )[0]
 
     if (!student) {
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Check if parent already has an account
     let user = (
-      await db.select().from(users).where(eq(users.email, guestPayment.parentEmail)).limit(1)
+      await prisma.select().from(users).where(eq(users.email, guestPayment.parentEmail)).limit(1)
     )[0]
 
     // If no user exists, create a ghost account
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     if (!existingRelationship) {
       // Create parent-student relationship
-      await db.insert(studentParents).values({
+      await prisma.insert(studentParents).values({
         id: crypto.randomUUID(),
         userId: user.id,
         studentId: validatedData.studentId,
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create payment record
-    await db.insert(paymentsTable).values({
+    await prisma.insert(paymentsTable).values({
       id: crypto.randomUUID(),
       enrollmentId: enrollment.id,
       categoryId: guestPayment.categoryId,

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { db } from '@/lib/drizzle'
-import { connectedAccounts, tenants } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { stripe } from '@/lib/stripe'
 
 export async function POST(request: NextRequest) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       stripeAccountId = account.id
 
       // Save to database
-      await db.insert(connectedAccounts).values({
+      await prisma.insert(connectedAccounts).values({
         tenantId: tenantId,
         stripeAccountId: stripeAccountId,
         status: 'pending_onboarding',

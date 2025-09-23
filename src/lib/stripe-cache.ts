@@ -1,9 +1,6 @@
-// @ts-nocheck
 // Helper functions for working with Stripe cache (t3dotgg pattern)
 
-import { db } from '@/lib/drizzle';
-import { users, stripeCache as stripeCacheTable, studentPaymentEnrollments, paymentCategories, students } from '@/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
 import type { StripeCustomerCache, PaymentTotals, StripePaymentData, StudentEnrollments, PaymentCategory } from '@/types/stripe';
 import { PAYMENT_CATEGORIES } from '@/types/stripe';
@@ -12,12 +9,12 @@ import { PAYMENT_CATEGORIES } from '@/types/stripe';
  * Get user's Stripe cache data (single source of truth)
  */
 export async function getUserStripeData(userId: string): Promise<StripeCustomerCache | null> {
-  const cache = (
-    await db.select().from(stripeCacheTable).where(eq(stripeCacheTable.userId, userId)).limit(1)
-  )[0];
-  
+  const cache = await prisma.stripeCache.findUnique({
+    where: { userId }
+  });
+
   if (!cache) return null;
-  
+
   // Type assertion - we control the shape through syncStripeDataToUser
   return cache.data as unknown as StripeCustomerCache;
 }
@@ -64,20 +61,20 @@ export async function getUserOutstandingBalances(userId: string) {
 export async function createStripeCustomerForUser(userId: string): Promise<string | null> {
   try {
     // Get user data
-  const user = (
-    await db.select().from(users).where(eq(users.id, userId)).limit(1)
-  )[0];
-    
+    const user = await prisma.users.findUnique({
+      where: { id: userId }
+    });
+
     if (!user) {
       console.error(`User ${userId} not found`);
       return null;
     }
-    
+
     if (user.stripeCustomerId) {
       console.log(`User ${userId} already has Stripe customer: ${user.stripeCustomerId}`);
       return user.stripeCustomerId;
     }
-    
+
     // Create Stripe customer
     const customer = await stripe.customers.create({
       email: user.email,
@@ -87,13 +84,19 @@ export async function createStripeCustomerForUser(userId: string): Promise<strin
         role: user.role
       }
     });
-    
+
     // Update user with customer ID
-  await db.update(users).set({ stripeCustomerId: customer.id, updatedAt: new Date() }).where(eq(users.id, userId));
-    
+    await prisma.users.update({
+      where: { id: userId },
+      data: {
+        stripeCustomerId: customer.id,
+        updatedAt: new Date()
+      }
+    });
+
     console.log(`✅ Created Stripe customer ${customer.id} for user ${userId}`);
     return customer.id;
-    
+
   } catch (error) {
     console.error(`❌ Failed to create Stripe customer for user ${userId}:`, error);
     return null;
@@ -107,9 +110,9 @@ export async function createStripeCustomerForUser(userId: string): Promise<strin
 export async function syncStripeDataToUser(userId: string): Promise<StripeCustomerCache | null> {
   try {
     // 1. Get user and their Stripe customer ID
-  const user = (
-    await db.select().from(users).where(eq(users.id, userId)).limit(1)
-  )[0];
+    const user = await prisma.users.findUnique({
+      where: { id: userId }
+    });
     
     if (!user || !user.stripeCustomerId) {
       console.log(`User ${userId} has no Stripe customer ID`);
@@ -227,24 +230,30 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
     for (const [studentId, studentData] of Object.entries(enrollments)) {
       for (const [categoryKey, categoryData] of Object.entries(studentData.categories)) {
         const categoryName = PAYMENT_CATEGORIES[categoryKey as keyof typeof PAYMENT_CATEGORIES].name;
-        
+
         // Find the enrollment record in the database
-        const enrollment = (
-          await db
-            .select({ id: studentPaymentEnrollments.id, amountPaid: studentPaymentEnrollments.amountPaid })
-            .from(studentPaymentEnrollments)
-            .leftJoin(paymentCategories, eq(studentPaymentEnrollments.categoryId, paymentCategories.id))
-            .leftJoin(students, eq(studentPaymentEnrollments.studentId, students.id))
-            .where(and(eq(students.id, studentId), eq(paymentCategories.name, categoryName)))
-            .limit(1)
-        )[0];
-        
+        const enrollment = await prisma.studentPaymentEnrollments.findFirst({
+          where: {
+            studentId: studentId,
+            paymentCategories: {
+              name: categoryName
+            }
+          },
+          select: {
+            id: true,
+            amountPaid: true
+          }
+        });
+
         if (enrollment) {
           // Update the amountPaid field with calculated value from Stripe
-          await db
-            .update(studentPaymentEnrollments)
-            .set({ amountPaid: categoryData.amountPaid, updatedAt: new Date() })
-            .where(eq(studentPaymentEnrollments.id, enrollment.id));
+          await prisma.studentPaymentEnrollments.update({
+            where: { id: enrollment.id },
+            data: {
+              amountPaid: categoryData.amountPaid,
+              updatedAt: new Date()
+            }
+          });
         }
       }
     }
@@ -259,13 +268,19 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
     };
     
     // 7. Upsert to StripeCache table (single source of truth)
-    await db
-      .insert(stripeCacheTable)
-      .values({ id: crypto.randomUUID(), userId, data: JSON.parse(JSON.stringify(cacheData)), updatedAt: new Date() })
-      .onConflictDoUpdate({
-        target: stripeCacheTable.userId,
-        set: { data: JSON.parse(JSON.stringify(cacheData)), updatedAt: new Date() },
-      });
+    await prisma.stripeCache.upsert({
+      where: { userId },
+      create: {
+        id: crypto.randomUUID(),
+        userId,
+        data: JSON.parse(JSON.stringify(cacheData)),
+        updatedAt: new Date()
+      },
+      update: {
+        data: JSON.parse(JSON.stringify(cacheData)),
+        updatedAt: new Date()
+      }
+    });
     
     console.log(`✅ Synced Stripe data for user ${userId}: ${payments.length} payments`);
     return cacheData;
@@ -310,9 +325,9 @@ export async function enrollStudentInCategory(
 ): Promise<boolean> {
   try {
     // Get user and their Stripe customer ID
-    const user = (
-      await db.select().from(users).where(eq(users.id, userId)).limit(1)
-    )[0];
+    const user = await prisma.users.findUnique({
+      where: { id: userId }
+    });
     
     if (!user) {
       console.error(`User ${userId} not found`);
@@ -359,14 +374,19 @@ export async function enrollStudentInCategory(
     };
     
     // Create database enrollment record
-    const paymentCategory = (
-      await db.select().from(paymentCategories).where(eq(paymentCategories.name, categoryConfig.name)).limit(1)
-    )[0];
-    
+    const paymentCategory = await prisma.paymentCategories.findUnique({
+      where: { name: categoryConfig.name }
+    });
+
     if (paymentCategory) {
-      await db
-        .insert(studentPaymentEnrollments)
-        .values({
+      await prisma.studentPaymentEnrollments.upsert({
+        where: {
+          studentId_categoryId: {
+            studentId: studentId,
+            categoryId: paymentCategory.id
+          }
+        },
+        create: {
           id: crypto.randomUUID(),
           studentId: studentId,
           categoryId: paymentCategory.id,
@@ -374,12 +394,14 @@ export async function enrollStudentInCategory(
           amountPaid: 0,
           status: 'ACTIVE',
           createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [studentPaymentEnrollments.studentId, studentPaymentEnrollments.categoryId],
-          set: { totalOwed: categoryConfig.totalAmount, status: 'ACTIVE', updatedAt: new Date() },
-        });
+          updatedAt: new Date()
+        },
+        update: {
+          totalOwed: categoryConfig.totalAmount,
+          status: 'ACTIVE',
+          updatedAt: new Date()
+        }
+      });
     }
     
     // Update Stripe customer metadata
@@ -412,9 +434,9 @@ export async function unenrollStudentFromCategory(
 ): Promise<boolean> {
   try {
     // Get user and their Stripe customer ID
-    const user = (
-      await db.select().from(users).where(eq(users.id, userId)).limit(1)
-    )[0];
+    const user = await prisma.users.findUnique({
+      where: { id: userId }
+    });
     
     if (!user || !user.stripeCustomerId) {
       console.error(`User ${userId} has no Stripe customer ID`);

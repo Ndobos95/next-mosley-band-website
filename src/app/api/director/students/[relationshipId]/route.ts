@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth-server'
-import { db } from '@/lib/drizzle'
-import { studentParents, students, users } from '@/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 
 export async function PATCH(
   request: NextRequest,
@@ -79,7 +79,7 @@ export async function PATCH(
 
     // If approving a PARENT_REGISTRATION student, promote it to ROSTER
     if (action === 'approve' && updatedRelationship.studentSource === 'PARENT_REGISTRATION') {
-      await db.update(students).set({ source: 'ROSTER' }).where(eq(students.id, updatedRelationship.studentId))
+      await prisma.update(students).set({ source: 'ROSTER' }).where(eq(students.id, updatedRelationship.studentId))
       
       console.log(`Promoted student ${updatedRelationship.student.name} from PARENT_REGISTRATION to ROSTER`)
     }

@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/drizzle'
-import { students } from '@/db/schema'
-import { inArray } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { fuzzyMatch } from '@/lib/fuzzy-match'
 
 export async function POST(request: NextRequest) {

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { db } from '@/lib/drizzle'
-import { donations as donationsTable, userProfiles } from '@/db/schema'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { stripe } from '@/lib/stripe'
 
 export async function GET(request: NextRequest) {
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         
         if (!existing) {
           // Create new donation record
-          await db.insert(donationsTable).values({
+          await prisma.insert(donationsTable).values({
             id: crypto.randomUUID(),
             tenantId: tenantId, // Use the tenantId from request headers
             parentName: cs.metadata!.donorName,

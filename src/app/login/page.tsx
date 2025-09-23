@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
-import { db } from '@/lib/drizzle'
-import { tenants } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import LoginForm from './login-form'
 
 async function getTenantFromHeaders() {

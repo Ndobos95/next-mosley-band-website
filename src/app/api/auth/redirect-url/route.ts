@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { db } from '@/lib/drizzle'
-import { memberships, tenants } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { getCurrentEnvironment, getTenantUrl } from '@/lib/environment'
 
 export async function GET() {

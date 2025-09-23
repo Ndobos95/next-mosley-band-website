@@ -171,8 +171,7 @@ export async function middleware(request: NextRequest) {
           const { data: { user } } = await supabase.auth.getUser()
           
           if (user) {
-            // Quick check: if user belongs to this tenant, continue
-            // For performance, we'll let the client-side enforcer handle detailed validation
+            // Regular user - will be validated by client-side enforcer
             console.log('🔒 MIDDLEWARE: Authenticated user on protected route', pathname, 'tenant:', tenant.slug)
           }
           

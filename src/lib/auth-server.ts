@@ -1,8 +1,6 @@
 import { createClient } from "./supabase/server"
 import { redirect } from "next/navigation"
-import { db } from "./drizzle"
-import { userProfiles } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { prisma } from "./prisma"
 
 export async function getSession() {
   try {
@@ -12,21 +10,19 @@ export async function getSession() {
     if (!user) return null
     
     // Get user data from our database
-    const userProfile = await db
-      .select()
-      .from(userProfiles)
-      .where(eq(userProfiles.id, user.id))
-      .limit(1)
+    const userProfile = await prisma.user_profiles.findUnique({
+      where: { id: user.id }
+    })
     
-    if (userProfile.length === 0) return null
+    if (!userProfile) return null
     
     return {
       user: {
         id: user.id,
         email: user.email!,
-        role: userProfile[0].role,
-        name: userProfile[0].displayName,
-        tenantId: userProfile[0].tenantId
+        role: userProfile.role,
+        name: userProfile.display_name,
+        tenantId: userProfile.tenant_id
       }
     }
   } catch (error) {
@@ -43,10 +39,21 @@ export async function requireAuth() {
   return session
 }
 
-export async function requireRole(requiredRole: "PARENT" | "DIRECTOR" | "BOOSTER") {
+export async function requireRole(requiredRole: "PARENT" | "DIRECTOR" | "BOOSTER" | "PLATFORM_ADMIN") {
   const session = await requireAuth()
+
+  // Platform admins can access everything
+  if (session.user.role === "PLATFORM_ADMIN") {
+    return session
+  }
+
   if (session.user.role !== requiredRole) {
     throw new Error(`Access denied. Required role: ${requiredRole}`)
   }
   return session
+}
+
+export async function isPlatformAdmin() {
+  const session = await getSession()
+  return session?.user.role === "PLATFORM_ADMIN"
 }

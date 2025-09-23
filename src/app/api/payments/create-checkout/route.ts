@@ -1,9 +1,6 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth-server';
-import { db } from '@/lib/drizzle';
-import { studentParents, users, students } from '@/db/schema';
-import { and, eq, isNull } from 'drizzle-orm';
+import { prisma } from '@/lib/prisma';
 import { resolveTenant, getRequestOrigin } from '@/lib/tenancy'
 import { stripe } from '@/lib/stripe';
 import { createStripeCustomerForUser } from '@/lib/stripe-cache';
@@ -17,10 +14,8 @@ interface CheckoutRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers
-    });
-    
+    const session = await getSession(request);
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -40,28 +35,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the student-parent relationship exists and is active
-    const sp = (
-      await db
-        .select({
-          id: studentParents.id,
-          status: studentParents.status,
-          createdAt: studentParents.createdAt,
-          studentId: studentParents.studentId,
-          studentName: students.name,
-        })
-        .from(studentParents)
-        .leftJoin(students, eq(studentParents.studentId, students.id))
-        .where(
-          and(
-            eq(studentParents.tenantId, tenant.id),
-            eq(studentParents.userId, session.user.id),
-            eq(studentParents.studentId, studentId),
-            eq(studentParents.status, 'ACTIVE'),
-            isNull(studentParents.deletedAt),
-          ),
-        )
-        .limit(1)
-    )[0];
+    const sp = await prisma.studentParents.findFirst({
+      where: {
+        tenantId: tenant.id,
+        userId: session.user.id,
+        studentId: studentId,
+        status: 'ACTIVE',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        studentId: true,
+        students: {
+          select: {
+            name: true
+          }
+        }
+      }
+    });
 
     if (!sp) {
       return NextResponse.json({ 
@@ -88,9 +81,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create Stripe customer
-    const user = (
-      await db.select().from(users).where(eq(users.id, session.user.id)).limit(1)
-    )[0];
+    const user = await prisma.users.findUnique({
+      where: { id: session.user.id }
+    });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -120,8 +113,8 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `${categoryConfig.name} - ${sp.studentName}`,
-              description: incrementCount > 1 
+              name: `${categoryConfig.name} - ${sp.students.name}`,
+              description: incrementCount > 1
                 ? `Payment ${incrementCount} x $${(categoryConfig.increment / 100).toFixed(2)}`
                 : `Payment for ${categoryConfig.name}`,
             },
@@ -141,7 +134,7 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         userEmail: user.email,
         studentId: studentId,
-        studentName: sp.studentName,
+        studentName: sp.students.name,
         category: category,
         incrementCount: incrementCount.toString(),
         tenantSlug: tenant.slug,

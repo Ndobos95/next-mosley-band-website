@@ -1,9 +1,6 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth-server'
-import { db } from '@/lib/drizzle'
-import { students, studentParents } from '@/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
 import { EmailService } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
@@ -23,7 +20,9 @@ export async function POST(request: NextRequest) {
 
     // Fuzzy matching against the roster
     const normalizedInput = name.toLowerCase().trim()
-    const rosterStudents = await db.select().from(students).where(eq(students.tenantId, session.user.tenantId as string))
+    const rosterStudents = await prisma.students.findMany({
+      where: { tenant_id: session.user.tenantId as string }
+    })
     
     // First, find all name matches
     const nameMatches = rosterStudents.filter(student => {
@@ -55,13 +54,12 @@ export async function POST(request: NextRequest) {
 
     if (match) {
       // Check if this student is already claimed by another parent
-      const existingClaim = (
-        await db
-          .select()
-          .from(studentParents)
-          .where(and(eq(studentParents.studentId, match.id), isNull(studentParents.deletedAt)))
-          .limit(1)
-      )[0]
+      const existingClaim = await prisma.student_parents.findFirst({
+        where: {
+          student_id: match.id,
+          deleted_at: null
+        }
+      })
 
       if (existingClaim) {
         // Student already claimed - needs director review
@@ -73,14 +71,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the student-parent relationship
-      await db.insert(studentParents).values({
-        id: crypto.randomUUID(),
-        tenantId: session.user.tenantId as string,
-        userId: session.user.id,
-        studentId: match.id,
-        status: 'ACTIVE',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+      await prisma.student_parents.create({
+        data: {
+          id: crypto.randomUUID(),
+          tenant_id: session.user.tenantId as string,
+          user_id: session.user.id,
+          student_id: match.id,
+          status: 'ACTIVE'
+        }
       })
 
       return NextResponse.json({
@@ -95,29 +93,24 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // No match found - create new student and pending relationship
-      const newStudent = (
-        await db
-          .insert(students)
-          .values({
-            id: crypto.randomUUID(),
-            tenantId: session.user.tenantId as string,
-            name: name.trim(),
-            instrument: instrument.trim(),
-            source: 'PARENT_REGISTRATION',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .returning()
-      )[0]
+      const newStudent = await prisma.students.create({
+        data: {
+          id: crypto.randomUUID(),
+          tenant_id: session.user.tenantId as string,
+          name: name.trim(),
+          instrument: instrument.trim(),
+          source: 'PARENT_REGISTRATION'
+        }
+      })
 
-      await db.insert(studentParents).values({
-        id: crypto.randomUUID(),
-        tenantId: session.user.tenantId as string,
-        userId: session.user.id,
-        studentId: newStudent.id,
-        status: 'PENDING',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+      await prisma.student_parents.create({
+        data: {
+          id: crypto.randomUUID(),
+          tenant_id: session.user.tenantId as string,
+          user_id: session.user.id,
+          student_id: newStudent.id,
+          status: 'PENDING'
+        }
       })
 
       console.log('Created new student for parent registration:', {

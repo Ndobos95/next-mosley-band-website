@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { getSession } from '@/lib/auth-server';
 import { redirect } from 'next/navigation';
-import { db } from '@/lib/drizzle';
-import { students, studentParents, users, studentPaymentEnrollments, paymentCategories, payments, guestPayments } from '@/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { prisma } from '@/lib/prisma';
+
+
 import { StudentDetails } from '@/components/student-details';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';

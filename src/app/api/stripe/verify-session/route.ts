@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
-import { db } from '@/lib/drizzle'
-import { paymentCategories, studentPaymentEnrollments, payments } from '@/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { resolveTenant } from '@/lib/tenancy'
 import { PAYMENT_CATEGORIES } from '@/types/stripe'
 

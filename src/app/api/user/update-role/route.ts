@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { db } from '@/lib/drizzle'
-import { userProfiles } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 
 export async function POST(request: NextRequest) {
   try {

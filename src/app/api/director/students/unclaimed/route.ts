@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth-server'
-import { db } from '@/lib/drizzle'
-import { students, studentParents } from '@/db/schema'
-import { asc, sql } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 
 export async function GET(request: NextRequest) {
   try {

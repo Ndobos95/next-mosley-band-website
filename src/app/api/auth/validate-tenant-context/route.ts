@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { db } from '@/lib/drizzle'
-import { memberships, tenants } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
 import { getCurrentEnvironment, getTenantUrl } from '@/lib/environment'
 
 export async function GET(request: NextRequest) {
@@ -23,17 +21,35 @@ export async function GET(request: NextRequest) {
     const hostname = searchParams.get('hostname')
     const originalPath = searchParams.get('originalPath') || '/dashboard'
 
-    // Get user's tenant memberships
-    const userMemberships = await db
-      .select({
-        tenantId: memberships.tenantId,
-        tenantSlug: tenants.slug,
-        role: memberships.role
+    // Check if user is a platform admin
+    const userProfile = await prisma.user_profiles.findUnique({
+      where: { id: user.id }
+    })
+
+    if (userProfile?.role === 'PLATFORM_ADMIN') {
+      // Platform admins can access any tenant without restrictions
+      return NextResponse.json({
+        authenticated: true,
+        requiresRedirect: false,
+        userTenant: currentTenantSlug || 'platform',
+        userRole: 'PLATFORM_ADMIN',
+        isPlatformAdmin: true
       })
-      .from(memberships)
-      .innerJoin(tenants, eq(memberships.tenantId, tenants.id))
-      .where(eq(memberships.userId, user.id))
-      .limit(1)
+    }
+
+    // Get user's tenant memberships
+    const userMemberships = await prisma.memberships.findMany({
+      where: { user_id: user.id },
+      include: {
+        tenants: {
+          select: {
+            id: true,
+            slug: true
+          }
+        }
+      },
+      take: 1
+    })
     
     if (userMemberships.length === 0) {
       // User has no tenant membership - redirect to main site
@@ -47,10 +63,10 @@ export async function GET(request: NextRequest) {
     
     const membership = userMemberships[0]
     const environment = getCurrentEnvironment()
-    
+
     // Check if user is on wrong tenant subdomain
-    if (currentTenantSlug && currentTenantSlug !== membership.tenantSlug) {
-      const correctUrl = getTenantUrl(membership.tenantSlug, environment)
+    if (currentTenantSlug && currentTenantSlug !== membership.tenants.slug) {
+      const correctUrl = getTenantUrl(membership.tenants.slug, environment)
       return NextResponse.json({
         authenticated: true,
         requiresRedirect: true,
@@ -61,7 +77,7 @@ export async function GET(request: NextRequest) {
     
     // Check if user is on main site when they should be on tenant subdomain
     if (!currentTenantSlug && hostname?.includes('localhost:3000')) {
-      const correctUrl = getTenantUrl(membership.tenantSlug, environment)
+      const correctUrl = getTenantUrl(membership.tenants.slug, environment)
       return NextResponse.json({
         authenticated: true,
         requiresRedirect: true,
@@ -74,7 +90,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       authenticated: true,
       requiresRedirect: false,
-      userTenant: membership.tenantSlug,
+      userTenant: membership.tenants.slug,
       userRole: membership.role
     })
     

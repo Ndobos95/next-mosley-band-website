@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Script to seed test data for multi-tenant SaaS platform
  * Run with: npx tsx src/scripts/seed-test-data.ts

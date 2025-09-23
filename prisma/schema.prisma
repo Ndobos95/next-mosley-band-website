@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model connected_accounts {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  stripe_account_id String   @unique(map: "connected_accounts_stripe_account_id_unique")
+  status            String
+  created_at        DateTime @default(now()) @db.Timestamp(6)
+  tenants           tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "connected_accounts_tenant_id_tenants_id_fk")
+}
+
+model donations {
+  id                       String   @id
+  parent_name              String
+  parent_email             String
+  amount                   Int
+  notes                    String
+  stripe_payment_intent_id String   @unique(map: "donations_stripe_payment_intent_id_unique")
+  status                   String   @default("PENDING")
+  is_guest                 Boolean  @default(false)
+  user_id                  String?
+  created_at               DateTime @default(now()) @db.Timestamp(6)
+  updated_at               DateTime @default(now()) @db.Timestamp(6)
+  tenant_id                String   @db.Uuid
+  tenants                  tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "donations_tenant_id_tenants_id_fk")
+}
+
+model guest_payments {
+  id                       String    @id
+  parent_name              String
+  parent_email             String
+  student_name             String
+  category_id              String
+  amount                   Int
+  notes                    String?
+  stripe_payment_intent_id String    @unique(map: "guest_payments_stripe_payment_intent_id_unique")
+  status                   String    @default("PENDING")
+  matched_student_id       String?
+  matched_user_id          String?
+  resolution_notes         String?
+  resolved_at              DateTime? @db.Timestamp(6)
+  email_sent               Boolean   @default(false)
+  email_error              String?
+  created_at               DateTime  @default(now()) @db.Timestamp(6)
+  updated_at               DateTime  @default(now()) @db.Timestamp(6)
+  tenant_id                String    @db.Uuid
+  tenants                  tenants   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "guest_payments_tenant_id_tenants_id_fk")
+}
+
+model invite_codes {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String    @unique(map: "invite_codes_code_unique")
+  school_name    String
+  director_email String
+  used           Boolean   @default(false)
+  used_at        DateTime? @db.Timestamp(6)
+  tenant_id      String?   @db.Uuid
+  expires_at     DateTime  @db.Timestamp(6)
+  created_at     DateTime  @default(now()) @db.Timestamp(6)
+  tenants        tenants?  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "invite_codes_tenant_id_tenants_id_fk")
+}
+
+model memberships {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String
+  tenant_id  String   @db.Uuid
+  role       String
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  tenants    tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "memberships_tenant_id_tenants_id_fk")
+}
+
+model payment_categories {
+  id               String   @id
+  name             String
+  description      String?
+  full_amount      Int
+  allow_increments Boolean  @default(false)
+  increment_amount Int?
+  active           Boolean  @default(true)
+  created_at       DateTime @default(now()) @db.Timestamp(6)
+  updated_at       DateTime @default(now()) @db.Timestamp(6)
+  tenant_id        String   @db.Uuid
+  tenants          tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "payment_categories_tenant_id_tenants_id_fk")
+
+  @@unique([tenant_id, name])
+}
+
+model payments {
+  id                       String   @id
+  enrollment_id            String
+  stripe_payment_intent_id String   @unique(map: "payments_stripe_payment_intent_id_unique")
+  amount                   Int
+  status                   String   @default("PENDING")
+  notes                    String?
+  parent_email             String
+  student_name             String
+  email_sent               Boolean  @default(false)
+  email_error              String?
+  created_at               DateTime @default(now()) @db.Timestamp(6)
+  updated_at               DateTime @default(now()) @db.Timestamp(6)
+  category_id              String
+  tenant_id                String   @db.Uuid
+  tenants                  tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "payments_tenant_id_tenants_id_fk")
+}
+
+model stripe_cache {
+  id         String   @id
+  user_id    String   @unique(map: "stripe_cache_user_id_unique")
+  data       Json
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+}
+
+model stripe_sync_log {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  direction    String
+  subject_type String
+  subject_id   String
+  payload      Json
+  result       Json
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  tenants      tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "stripe_sync_log_tenant_id_tenants_id_fk")
+}
+
+model student_parents {
+  id         String    @id
+  user_id    String
+  student_id String
+  status     String    @default("PENDING")
+  deleted_at DateTime? @db.Timestamp(6)
+  created_at DateTime  @default(now()) @db.Timestamp(6)
+  updated_at DateTime  @default(now()) @db.Timestamp(6)
+  tenant_id  String    @db.Uuid
+  tenants    tenants   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "student_parents_tenant_id_tenants_id_fk")
+
+  @@unique([tenant_id, user_id, student_id], map: "student_parents_tenant_user_id_student_id_key")
+}
+
+model student_payment_enrollments {
+  id          String   @id
+  student_id  String
+  category_id String
+  total_owed  Int
+  amount_paid Int      @default(0)
+  status      String   @default("ACTIVE")
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @default(now()) @db.Timestamp(6)
+  tenant_id   String   @db.Uuid
+  tenants     tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "student_payment_enrollments_tenant_id_tenants_id_fk")
+
+  @@unique([tenant_id, student_id, category_id], map: "student_payment_enrollments_tenant_student_id_category_id_key")
+}
+
+model students {
+  id         String   @id
+  name       String
+  instrument String
+  grade      String?
+  source     String   @default("ROSTER")
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+  tenant_id  String   @db.Uuid
+  tenants    tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "students_tenant_id_tenants_id_fk")
+}
+
+model tenants {
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                        String                        @unique(map: "tenants_slug_unique")
+  name                        String
+  created_at                  DateTime                      @default(now()) @db.Timestamp(6)
+  status                      String                        @default("pending")
+  director_email              String?
+  director_name               String?
+  updated_at                  DateTime                      @default(now()) @db.Timestamp(6)
+  connected_accounts          connected_accounts[]
+  donations                   donations[]
+  guest_payments              guest_payments[]
+  invite_codes                invite_codes[]
+  memberships                 memberships[]
+  payment_categories          payment_categories[]
+  payments                    payments[]
+  stripe_sync_log             stripe_sync_log[]
+  student_parents             student_parents[]
+  student_payment_enrollments student_payment_enrollments[]
+  students                    students[]
+  user_profiles               user_profiles[]
+}
+
+model user_profiles {
+  id           String   @id @db.Uuid
+  tenant_id    String?  @db.Uuid
+  email        String
+  role         String   @default("PARENT")
+  display_name String?
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @default(now()) @db.Timestamp(6)
+  tenants      tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_profiles_tenant_id_tenants_id_fk")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model waitlist {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email      String    @unique @db.VarChar(255)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  email_sent Boolean?  @default(false)
+  source     String?   @default("landing_page") @db.VarChar(100)
+  user_agent String?
+  ip_address String?   @db.Inet
+  referrer   String?
+
+  @@index([created_at], map: "idx_waitlist_created_at")
+  @@index([email], map: "idx_waitlist_email")
+}

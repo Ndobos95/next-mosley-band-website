@@ -1,9 +1,6 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth-server';
-import { db } from '@/lib/drizzle';
-import { studentParents, students } from '@/db/schema';
-import { and, eq, isNull } from 'drizzle-orm';
+import { prisma } from '@/lib/prisma';
 import { enrollStudentInCategory, unenrollStudentFromCategory } from '@/lib/stripe-cache';
 import type { EnrollmentRequest } from '@/types/stripe';
 

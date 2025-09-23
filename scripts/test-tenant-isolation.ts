@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Test script to verify tenant isolation
  * Ensures data from one tenant cannot be accessed by another

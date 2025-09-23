@@ -4,9 +4,9 @@ import { Suspense } from 'react'
 import { getSession } from '@/lib/auth-server'
 import { stripe } from '@/lib/stripe'
 import { EmailService } from '@/lib/email'
-import { db } from '@/lib/drizzle'
-import { payments as paymentsTable, paymentCategories, studentPaymentEnrollments, students, guestPayments } from '@/db/schema'
-import { and, desc, eq, like } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, AlertCircle } from 'lucide-react'

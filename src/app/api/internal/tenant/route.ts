@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MemoryTenantCache } from '@/lib/tenant-memory-cache'
 import { RedisCloudCache } from '@/lib/redis-cloud'
-import { db } from '@/lib/drizzle'
-import { tenants } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -46,14 +44,20 @@ export async function GET(request: NextRequest) {
     
     // Both caches missed - query database
     console.log('💾 Cache MISS - querying database:', slug)
-    
-    const result = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.slug, slug))
-      .limit(1)
-    
-    if (result.length === 0) {
+
+    const result = await prisma.tenants.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        status: true,
+        director_email: true,
+        director_name: true
+      }
+    })
+
+    if (!result) {
       console.log('❌ Tenant not found in DB:', slug)
       // Cache the negative result in both caches
       await RedisCloudCache.setTenant(slug, null)
@@ -62,14 +66,13 @@ export async function GET(request: NextRequest) {
     }
     
     // Found tenant in database
-    const dbTenant = result[0]
     const tenant = {
-      id: dbTenant.id,
-      slug: dbTenant.slug,
-      name: dbTenant.name,
-      status: dbTenant.status,
-      directorEmail: dbTenant.directorEmail,
-      directorName: dbTenant.directorName,
+      id: result.id,
+      slug: result.slug,
+      name: result.name,
+      status: result.status,
+      directorEmail: result.director_email,
+      directorName: result.director_name,
     }
     
     console.log('✅ Found tenant in DB:', tenant.slug, tenant.status)

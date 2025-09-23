@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenant } from '@/lib/auth-context'
-import { db } from '@/lib/drizzle'
-import { studentParents, students } from '@/db/schema'
-import { and, desc, eq, isNull, ne } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 
 export async function GET(_request: NextRequest) {
   try {

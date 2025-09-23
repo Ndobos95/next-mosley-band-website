@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth-server'
-import { db } from '@/lib/drizzle'
-import { studentParents, students, users } from '@/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 
 export async function PATCH(
   request: NextRequest,
@@ -75,7 +75,7 @@ export async function PATCH(
 
     // Get the target student (must be ROSTER and unclaimed)
     const targetStudent = (
-      await db.select().from(students).where(eq(students.id, targetStudentId)).limit(1)
+      await prisma.select().from(students).where(eq(students.id, targetStudentId)).limit(1)
     )[0]
 
     if (!targetStudent) {
@@ -103,7 +103,7 @@ export async function PATCH(
     }
 
     // Perform the link operation in a transaction
-    await db.transaction(async (tx) => {
+    await prisma.transaction(async (tx) => {
       await tx.update(studentParents).set({
         studentId: targetStudentId,
         status: 'ACTIVE',

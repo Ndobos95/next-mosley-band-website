@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from './src/lib/drizzle'
 import { students, tenants } from './src/db/schema'
 import { eq } from 'drizzle-orm'

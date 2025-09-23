@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { db } from '@/lib/drizzle'
-import { tenants } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 
 async function getTenantFromHeaders() {
   const headersList = await headers()

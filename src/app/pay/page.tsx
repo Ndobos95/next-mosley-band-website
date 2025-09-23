@@ -1,7 +1,7 @@
 import { getSession, requireAuth, requireRole } from "@/lib/auth-server"
 import { db } from "@/lib/drizzle"
-import { paymentCategories } from "@/db/schema"
-import { asc, and, eq } from "drizzle-orm"
+
+
 import { headers } from 'next/headers'
 import { resolveTenantFromHeaders } from '@/lib/tenancy'
 import { GuestPaymentForm } from "@/components/guest-payment-form"

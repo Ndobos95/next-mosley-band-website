@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/drizzle'
-import { userProfiles, tenants, memberships } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { createClient } from '@/lib/supabase/server'
 
 function getTenantSlugFromHost(host: string): string | null {
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     
     try {
       // Create both user profile and membership in a transaction
-      await db.transaction(async (tx) => {
+      await prisma.transaction(async (tx) => {
         // Create user profile
         await tx.insert(userProfiles).values(profileData)
         

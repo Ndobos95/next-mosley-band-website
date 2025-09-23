@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/drizzle'
-import { tenants, connectedAccounts } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { validateInviteCode, markInviteCodeAsUsed } from '@/lib/invite-codes'
 import { isValidSubdomain } from '@/lib/tenant-context'
 import { isSubdomainAvailable, getCurrentEnvironment } from '@/lib/environment'
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Create tenant  
-    const tenantResult = await db.insert(tenants).values({
+    const tenantResult = await prisma.insert(tenants).values({
       slug: schoolData.subdomain,
       name: schoolData.name,
       directorEmail: directorData.email,
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     const codeUsed = await markInviteCodeAsUsed(inviteCode, tenant.id)
     if (!codeUsed) {
       // Rollback tenant creation if invite code update fails
-      await db.delete(tenants).where(eq(tenants.id, tenant.id))
+      await prisma.delete(tenants).where(eq(tenants.id, tenant.id))
       return NextResponse.json(
         { error: 'Failed to process invite code' },
         { status: 500 }
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     // const stripeAccount = await createStripeConnectAccount(tenant, schoolData)
     
     // For now, create a placeholder connected account record
-    await db.insert(connectedAccounts).values({
+    await prisma.insert(connectedAccounts).values({
       tenantId: tenant.id,
       stripeAccountId: `acct_placeholder_${tenant.id}`,
       status: 'pending',

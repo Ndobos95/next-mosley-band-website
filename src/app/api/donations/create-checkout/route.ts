@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
-import { db } from '@/lib/drizzle'
-import { students } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
+
+
 import { z } from 'zod'
 import { resolveTenant, getRequestOrigin } from '@/lib/tenancy'
 

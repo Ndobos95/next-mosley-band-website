@@ -1,161 +1,110 @@
-import { db } from '@/lib/drizzle'
-import { inviteCodes, tenants } from '@/db/schema'
-import { eq, and } from 'drizzle-orm'
+// Invite code management functions for multi-tenant onboarding
+
+import { prisma } from '@/lib/prisma'
 import { nanoid } from 'nanoid'
 
-export interface InviteCodeData {
+interface CreateInviteCodeParams {
   schoolName: string
   directorEmail: string
-  code?: string // Optional custom code
-  expiresInDays?: number // Default 30 days
+  expiresInDays?: number
 }
 
-export interface ValidationResult {
-  valid: boolean
-  invite?: {
-    id: string
-    code: string
-    schoolName: string
-    directorEmail: string
-    expiresAt: Date
-  }
-  error?: string
-}
+export async function createInviteCode({
+  schoolName,
+  directorEmail,
+  expiresInDays = 30
+}: CreateInviteCodeParams) {
+  const code = nanoid(12).toUpperCase()
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + expiresInDays)
 
-/**
- * Generate a unique invite code
- */
-function generateUniqueCode(): string {
-  // Generate format: SCHOOL-YYYY-XXXX (e.g., LINCOLN-2024-A8B9)
-  const year = new Date().getFullYear()
-  const suffix = nanoid(4).toUpperCase()
-  return `BAND-${year}-${suffix}`
-}
-
-/**
- * Create a new invite code
- */
-export async function createInviteCode(data: InviteCodeData) {
-  const code = data.code || generateUniqueCode()
-  const expiresAt = new Date(Date.now() + (data.expiresInDays || 30) * 24 * 60 * 60 * 1000)
-
-  // Check if custom code already exists
-  if (data.code) {
-    const existing = await db
-      .select()
-      .from(inviteCodes)
-      .where(eq(inviteCodes.code, data.code))
-      .limit(1)
-    
-    if (existing.length > 0) {
-      throw new Error('Invite code already exists')
+  const invite = await prisma.invite_codes.create({
+    data: {
+      code,
+      school_name: schoolName,
+      director_email: directorEmail,
+      expires_at: expiresAt,
+      used: false
     }
-  }
+  })
 
-  const result = await db.insert(inviteCodes).values({
-    code,
-    schoolName: data.schoolName,
-    directorEmail: data.directorEmail,
-    expiresAt,
-  }).returning()
-
-  return result[0]
-}
-
-/**
- * Validate an invite code
- */
-export async function validateInviteCode(code: string): Promise<ValidationResult> {
-  try {
-    const result = await db
-      .select()
-      .from(inviteCodes)
-      .where(eq(inviteCodes.code, code))
-      .limit(1)
-
-    if (result.length === 0) {
-      return { valid: false, error: 'Invite code not found' }
-    }
-
-    const invite = result[0]
-
-    // Check if already used
-    if (invite.used) {
-      return { valid: false, error: 'Invite code has already been used' }
-    }
-
-    // Check if expired
-    if (new Date() > invite.expiresAt) {
-      return { valid: false, error: 'Invite code has expired' }
-    }
-
-    return {
-      valid: true,
-      invite: {
-        id: invite.id,
-        code: invite.code,
-        schoolName: invite.schoolName,
-        directorEmail: invite.directorEmail,
-        expiresAt: invite.expiresAt,
-      }
-    }
-  } catch (error) {
-    console.error('Error validating invite code:', error)
-    return { valid: false, error: 'Failed to validate invite code' }
+  return {
+    id: invite.id,
+    code: invite.code,
+    schoolName: invite.school_name,
+    directorEmail: invite.director_email,
+    used: invite.used,
+    usedAt: invite.used_at,
+    expiresAt: invite.expires_at,
+    createdAt: invite.created_at
   }
 }
 
-/**
- * Mark invite code as used and link to tenant
- */
-export async function markInviteCodeAsUsed(code: string, tenantId: string) {
-  try {
-    const updateData: any = {
-      used: true,
-      usedAt: new Date(),
-      tenantId,
-    }
-    
-    await db
-      .update(inviteCodes)
-      .set(updateData)
-      .where(
-        and(
-          eq(inviteCodes.code, code),
-          eq(inviteCodes.used, false)
-        )
-      )
-    
-    return true
-  } catch (error) {
-    console.error('Error marking invite code as used:', error)
-    return false
-  }
-}
-
-/**
- * List all invite codes (for admin interface)
- */
 export async function listInviteCodes() {
-  try {
-    return await db
-      .select({
-        id: inviteCodes.id,
-        code: inviteCodes.code,
-        schoolName: inviteCodes.schoolName,
-        directorEmail: inviteCodes.directorEmail,
-        used: inviteCodes.used,
-        usedAt: inviteCodes.usedAt,
-        expiresAt: inviteCodes.expiresAt,
-        createdAt: inviteCodes.createdAt,
-        tenantSlug: tenants.slug,
-        tenantName: tenants.name,
-      })
-      .from(inviteCodes)
-      .leftJoin(tenants, eq(inviteCodes.tenantId, tenants.id))
-      .orderBy(inviteCodes.createdAt)
-  } catch (error) {
-    console.error('Error listing invite codes:', error)
-    return []
+  const invites = await prisma.invite_codes.findMany({
+    include: {
+      tenants: true
+    },
+    orderBy: {
+      created_at: 'desc'
+    }
+  })
+
+  return invites.map(invite => ({
+    id: invite.id,
+    code: invite.code,
+    schoolName: invite.school_name,
+    directorEmail: invite.director_email,
+    used: invite.used,
+    usedAt: invite.used_at,
+    expiresAt: invite.expires_at,
+    createdAt: invite.created_at,
+    tenantSlug: invite.tenants?.slug,
+    tenantName: invite.tenants?.name
+  }))
+}
+
+export async function validateInviteCode(code: string) {
+  const invite = await prisma.invite_codes.findUnique({
+    where: { code },
+    include: {
+      tenants: true
+    }
+  })
+
+  if (!invite) {
+    return { valid: false, error: 'Invalid invite code' }
+  }
+
+  if (invite.used) {
+    return { valid: false, error: 'Invite code has already been used' }
+  }
+
+  if (new Date() > invite.expires_at) {
+    return { valid: false, error: 'Invite code has expired' }
+  }
+
+  return {
+    valid: true,
+    invite: {
+      id: invite.id,
+      code: invite.code,
+      schoolName: invite.school_name,
+      directorEmail: invite.director_email,
+      expiresAt: invite.expires_at
+    }
   }
 }
+
+export async function markInviteCodeAsUsed(code: string, tenantId: string) {
+  await prisma.invite_codes.update({
+    where: { code },
+    data: {
+      used: true,
+      used_at: new Date(),
+      tenant_id: tenantId
+    }
+  })
+}
+
+export const generateInviteCode = createInviteCode // Legacy export

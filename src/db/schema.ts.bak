@@ -188,7 +188,7 @@ export const userProfiles = pgTable('user_profiles', {
   id: uuid('id').primaryKey(), // matches auth.users.id
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
-  role: text('role').notNull().default('PARENT'), // PARENT, DIRECTOR, BOOSTER
+  role: text('role').notNull().default('PARENT'), // PARENT, DIRECTOR, BOOSTER, PLATFORM_ADMIN
   displayName: text('display_name'),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow(),
