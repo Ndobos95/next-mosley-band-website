@@ -89,9 +89,9 @@ export function StudentsPaymentsOverview() {
 
   const totalStats = students.reduce(
     (acc, student) => ({
-      totalOwed: acc.totalOwed + student.totalOwed,
-      totalPaid: acc.totalPaid + student.totalPaid,
-      totalRemaining: acc.totalRemaining + student.totalRemaining
+      totalOwed: acc.totalOwed + (student.totalOwed || 0),
+      totalPaid: acc.totalPaid + (student.totalPaid || 0),
+      totalRemaining: acc.totalRemaining + (student.totalRemaining || 0)
     }),
     { totalOwed: 0, totalPaid: 0, totalRemaining: 0 }
   )
@@ -173,15 +173,15 @@ export function StudentsPaymentsOverview() {
                     <TableCell>{student.instrument}</TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {student.parents.length > 0 ? (
+                        {student.parents && student.parents.length > 0 ? (
                           student.parents.map(parent => parent.name).join(', ')
                         ) : (
                           <span className="text-muted-foreground">No linked parents</span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{formatCurrency(student.totalOwed)}</TableCell>
-                    <TableCell className="text-green-600">{formatCurrency(student.totalPaid)}</TableCell>
+                    <TableCell>{formatCurrency(student.totalOwed || 0)}</TableCell>
+                    <TableCell className="text-green-600">{formatCurrency(student.totalPaid || 0)}</TableCell>
                     <TableCell>
                       <Link href={`/dashboard/student/${student.id}`}>
                         <Button 

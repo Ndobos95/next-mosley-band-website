@@ -8,7 +8,7 @@ This platform has evolved from a single-school band program template into a **mu
 
 ## Tech Stack
 - **Frontend**: Next.js 15.3.4 + TypeScript + shadcn/ui
-- **Database**: PostgreSQL + Drizzle ORM (migrated from SQLite/Prisma)
+- **Database**: PostgreSQL + Prisma ORM (migrated from SQLite)
 - **Authentication**: Supabase Auth (multi-role: Parents, Directors, Boosters)
 - **Payments**: Stripe Connect (per-tenant accounts) + Direct Stripe integration
 - **Email**: Resend (transactional emails for payments and notifications)
@@ -99,7 +99,7 @@ This platform has evolved from a single-school band program template into a **mu
 
 ## 🏗️ Multi-Tenant Database Architecture
 
-**Migration Status**: ✅ **COMPLETED** - Fully migrated from SQLite/Prisma to PostgreSQL/Drizzle
+**Migration Status**: ✅ **COMPLETED** - Fully migrated from SQLite to PostgreSQL with Prisma ORM
 
 ### **Core SaaS Infrastructure Tables**
 - **`tenants`** - School organizations (slug, name, metadata)
@@ -146,7 +146,7 @@ All business logic tables include `tenantId` foreign key with cascade deletes:
 ## 🚀 SaaS Development Status & Next Steps
 
 ### ✅ **COMPLETED - Production Ready Core**
-1. **Multi-tenant database architecture** - PostgreSQL + Drizzle with full tenant isolation
+1. **Multi-tenant database architecture** - PostgreSQL + Prisma with full tenant isolation
 2. **Authentication system** - Supabase Auth with Parent/Director/Booster roles
 3. **Payment system** - Complete t3dotgg pattern with Stripe integration (ready for Connect)
 4. **Student management** - Registration, fuzzy matching, parent-student linking
@@ -657,7 +657,7 @@ When payment/enrollment data shows inconsistencies:
 ### **Architecture Transformation: Single-Tenant → Multi-Tenant SaaS**
 
 **✅ COMPLETED MIGRATION:**
-- **Database**: Migrated from SQLite/Prisma → PostgreSQL/Drizzle 
+- **Database**: Migrated from SQLite → PostgreSQL with Prisma ORM
 - **Schema**: Added tenant isolation with `tenantId` foreign keys on all domain tables
 - **Infrastructure**: Added `tenants`, `memberships`, `connectedAccounts` tables for SaaS operations
 - **Stripe**: Ready for Stripe Connect integration (tables and sync infrastructure exist)
