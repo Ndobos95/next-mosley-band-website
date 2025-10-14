@@ -12,11 +12,16 @@
     "db:migrate:create": "dotenv -e .env.development -- prisma migrate dev --create-only",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
+    "db:reset": "dotenv -e .env.development -- prisma migrate reset --skip-seed",
     "db:migrate:reset": "dotenv -e .env.development -- prisma migrate reset",
     "db:pull": "dotenv -e .env.development -- prisma db pull",
     "db:pull:prod": "dotenv -e .env.production -- prisma db pull",
     "db:studio": "dotenv -e .env.development -- prisma studio",
     "db:seed": "dotenv -e .env.development -- tsx prisma/seed.ts"
+  },
+  "_comments": {
+    "db:reset": "DEV ONLY: Drop all tables and re-run migrations WITHOUT seeding. Use this for a clean slate.",
+    "db:migrate:reset": "DEV ONLY: Drop all tables, re-run migrations, AND auto-seed. Use this for quick testing with fresh data."
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
