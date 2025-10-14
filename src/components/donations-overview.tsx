@@ -68,9 +68,9 @@ export function DonationsOverview() {
 
   // Filter donations based on search term
   const filteredDonations = donationData?.donations.filter(donation =>
-    donation.parentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    donation.parentEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    donation.notes.toLowerCase().includes(searchTerm.toLowerCase())
+    donation.parentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    donation.parentEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    donation.notes?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
 
   if (isLoading) {
