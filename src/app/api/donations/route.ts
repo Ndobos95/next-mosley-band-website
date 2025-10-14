@@ -27,10 +27,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get tenant from request headers
-    const tenantId = request.headers.get('x-tenant-id')
+    // Get tenant from user profile (until multi-tenant middleware is implemented)
+    const tenantId = profile.tenant_id
     if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+      return NextResponse.json({ error: 'User profile missing tenant assignment' }, { status: 400 })
     }
 
     // t3dotgg pattern: Sync donation data directly from Stripe when needed

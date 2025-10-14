@@ -284,10 +284,11 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/pay`,
       customer: stripeCustomerId, // Use ghost account customer if available
       customer_email: stripeCustomerId ? undefined : validatedData.parentEmail, // Only set email if no customer
-      payment_intent_data: tenant.connected_account_id ? {
-        transfer_data: { destination: tenant.connected_account_id },
-        application_fee_amount: applicationFeeAmount,
-      } : undefined,
+      // TODO: Enable payment_intent_data when Stripe Connect is implemented
+      // payment_intent_data: connectedAccountId ? {
+      //   transfer_data: { destination: connectedAccountId },
+      //   application_fee_amount: applicationFeeAmount,
+      // } : undefined,
       metadata: {
         type: 'guest_payment',
         parentEmail: validatedData.parentEmail,

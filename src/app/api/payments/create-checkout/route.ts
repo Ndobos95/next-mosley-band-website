@@ -139,10 +139,11 @@ export async function POST(request: NextRequest) {
       mode: 'payment',
       success_url: `${origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard?payment=cancelled`,
-      payment_intent_data: tenant.connectedAccountId ? {
-        transfer_data: { destination: tenant.connectedAccountId },
-        application_fee_amount: applicationFeeAmount,
-      } : undefined,
+      // TODO: Enable payment_intent_data when Stripe Connect is implemented
+      // payment_intent_data: connectedAccountId ? {
+      //   transfer_data: { destination: connectedAccountId },
+      //   application_fee_amount: applicationFeeAmount,
+      // } : undefined,
       metadata: {
         userId: user.id,
         userEmail: userProfile.email,

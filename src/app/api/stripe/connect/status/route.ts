@@ -13,11 +13,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get tenant from request headers
-    const tenantId = request.headers.get('x-tenant-id')
+    // Get user profile to access tenant
+    const profile = await prisma.user_profiles.findUnique({
+      where: { id: user.id },
+      select: { tenant_id: true, role: true }
+    })
+
+    if (!profile || !['DIRECTOR', 'BOOSTER'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Forbidden - Director/Booster access required' }, { status: 403 })
+    }
+
+    // Get tenant from user profile (until multi-tenant middleware is implemented)
+    const tenantId = profile.tenant_id
 
     if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+      return NextResponse.json({ error: 'User profile missing tenant assignment' }, { status: 400 })
     }
 
     // Get connected account for this tenant

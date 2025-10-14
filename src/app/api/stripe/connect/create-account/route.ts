@@ -15,16 +15,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get tenant from request headers (set by middleware)
-    const tenantId = request.headers.get('x-tenant-id')
-    const tenantSlug = request.headers.get('x-tenant-slug')
+    // Get user profile to access tenant
+    const profile = await prisma.user_profiles.findUnique({
+      where: { id: user.id },
+      select: { tenant_id: true, role: true, email: true }
+    })
 
-    if (!tenantId || !tenantSlug) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    if (!profile || !['DIRECTOR', 'BOOSTER'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Forbidden - Director/Booster access required' }, { status: 403 })
     }
 
-    // Check if user is a director for this tenant
-    // TODO: Add proper role checking once membership system is in place
+    // Get tenant from user profile (until multi-tenant middleware is implemented)
+    const tenantId = profile.tenant_id
+
+    if (!tenantId) {
+      return NextResponse.json({ error: 'User profile missing tenant assignment' }, { status: 400 })
+    }
+
+    // Get tenant details including slug
+    const tenant = await prisma.tenants.findUnique({
+      where: { id: tenantId },
+      select: { id: true, slug: true, name: true, director_email: true }
+    })
+
+    if (!tenant) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    const tenantSlug = tenant.slug
 
     // Check if tenant already has a connected account
     const existingAccount = await prisma.connected_accounts.findFirst({
@@ -38,25 +56,11 @@ export async function POST(request: NextRequest) {
       stripeAccountId = existingAccount.stripe_account_id
       console.log('Using existing Stripe account:', stripeAccountId)
     } else {
-      // Get tenant details
-      const tenant = await prisma.tenants.findUnique({
-        where: { id: tenantId }
-      })
-
-      if (!tenant) {
-        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
-      }
-
-      // Get user profile for email
-      const userProfile = await prisma.user_profiles.findUnique({
-        where: { id: user.id }
-      })
-
       // Create new Stripe Connect account (Express type for simplicity)
       const account = await stripe.accounts.create({
         type: 'express',
         country: 'US',
-        email: tenant.director_email || userProfile?.email || user.email,
+        email: tenant.director_email || profile.email,
         capabilities: {
           card_payments: { requested: true },
           transfers: { requested: true },

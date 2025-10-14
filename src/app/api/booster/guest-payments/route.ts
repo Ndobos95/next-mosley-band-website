@@ -260,6 +260,8 @@ export async function POST(request: NextRequest) {
 
     const origin = getRequestOrigin(request)
 
+    // TODO: Add Stripe Connect support when implemented
+    // For now, payments go directly to the platform Stripe account
     const platformFeeBps = Number(process.env.PLATFORM_FEE_BPS || '0')
     const applicationFeeAmount = Math.floor((validatedData.amount * platformFeeBps) / 10000)
 
@@ -284,10 +286,11 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/pay`,
       customer: stripeCustomerId, // Use ghost account customer if available
       customer_email: stripeCustomerId ? undefined : validatedData.parentEmail, // Only set email if no customer
-      payment_intent_data: tenant.connected_account_id ? {
-        transfer_data: { destination: tenant.connected_account_id },
-        application_fee_amount: applicationFeeAmount,
-      } : undefined,
+      // TODO: Enable payment_intent_data when Stripe Connect is implemented
+      // payment_intent_data: connectedAccountId ? {
+      //   transfer_data: { destination: connectedAccountId },
+      //   application_fee_amount: applicationFeeAmount,
+      // } : undefined,
       metadata: {
         type: 'guest_payment',
         parentEmail: validatedData.parentEmail,
@@ -328,7 +331,7 @@ export async function GET(request: NextRequest) {
     // Check user role
     const profile = await prisma.user_profiles.findUnique({
       where: { id: user.id },
-      select: { role: true }
+      select: { role: true, tenant_id: true }
     })
 
     if (!profile || !['BOOSTER', 'DIRECTOR'].includes(profile.role)) {
@@ -338,10 +341,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get tenant from headers
-    const tenantId = request.headers.get('x-tenant-id')
+    // Get tenant from user profile (until multi-tenant middleware is implemented)
+    const tenantId = profile.tenant_id
     if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+      return NextResponse.json({ error: 'User profile missing tenant assignment' }, { status: 400 })
     }
 
     // Fetch guest payments with related data

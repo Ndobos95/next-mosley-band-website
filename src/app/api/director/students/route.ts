@@ -12,20 +12,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get tenant from request headers (set by middleware)
-    const tenantIdHeader = request.headers.get('x-tenant-id')
-    if (!tenantIdHeader) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    // Get user profile to access tenant
+    const profile = await prisma.user_profiles.findUnique({
+      where: { id: user.id },
+      select: { tenant_id: true, role: true }
+    })
+
+    if (!profile || !['DIRECTOR', 'BOOSTER'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Get tenant from user profile (until multi-tenant middleware is implemented)
+    const tenantId = profile.tenant_id
+    if (!tenantId) {
+      return NextResponse.json({ error: 'User profile missing tenant assignment' }, { status: 400 })
     }
 
     // Simple query - just get students for now
     const studentRows = await prisma.students.findMany({
       where: {
-        tenant_id: tenantIdHeader
+        tenant_id: tenantId
       }
     })
 
-    console.log(`Found ${studentRows.length} students for tenant ${tenantIdHeader}`)
+    console.log(`Found ${studentRows.length} students for tenant ${tenantId}`)
 
     // Return simplified data
     const studentsData = studentRows.map(student => ({
