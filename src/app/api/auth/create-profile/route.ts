@@ -44,56 +44,56 @@ export async function POST(request: NextRequest) {
     // Get tenant from the host header directly
     const host = request.headers.get('host') || ''
     const tenantSlug = getTenantSlugFromHost(host)
-    
+
     let targetTenant
-    
+
     if (tenantSlug) {
       // We're on a tenant subdomain, use that tenant
-      targetTenant = await db
-        .select()
-        .from(tenants)
-        .where(eq(tenants.slug, tenantSlug))
-        .limit(1)
+      targetTenant = await prisma.tenants.findFirst({
+        where: { slug: tenantSlug }
+      })
     } else {
       // We're on the main site, use default tenant
-      targetTenant = await db
-        .select()
-        .from(tenants)
-        .where(eq(tenants.slug, 'default'))
-        .limit(1)
+      targetTenant = await prisma.tenants.findFirst({
+        where: { slug: 'default' }
+      })
     }
 
-    if (!targetTenant || targetTenant.length === 0) {
+    if (!targetTenant) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 500 })
     }
 
-    // Create user profile with the correct authenticated user ID and tenant
-    const profileData = {
-      id: user.id,
-      email: user.email!,
-      displayName: displayName || null,
-      role: 'PARENT' as const,
-      tenantId: targetTenant[0].id
-    }
-    
     try {
       // Create both user profile and membership in a transaction
-      await prisma.transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         // Create user profile
-        await tx.insert(userProfiles).values(profileData)
-        
+        await tx.user_profiles.create({
+          data: {
+            id: user.id,
+            email: user.email!,
+            display_name: displayName || null,
+            role: 'PARENT',
+            tenant_id: targetTenant.id,
+            created_at: new Date(),
+            updated_at: new Date()
+          }
+        })
+
         // Create membership to associate user with tenant
-        await tx.insert(memberships).values({
-          userId: user.id, // This should be text type from Supabase
-          tenantId: targetTenant[0].id, // This should be UUID
-          role: 'PARENT'
+        await tx.memberships.create({
+          data: {
+            user_id: user.id,
+            tenant_id: targetTenant.id,
+            role: 'PARENT',
+            created_at: new Date()
+          }
         })
       })
-      
-      return NextResponse.json({ 
-        success: true, 
-        tenantSlug: targetTenant[0].slug,
-        userId: user.id 
+
+      return NextResponse.json({
+        success: true,
+        tenantSlug: targetTenant.slug,
+        userId: user.id
       })
     } catch (dbError) {
       console.error('Profile creation failed:', dbError)

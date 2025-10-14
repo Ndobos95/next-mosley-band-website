@@ -77,27 +77,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. Create tenant  
-    const tenantResult = await prisma.insert(tenants).values({
-      slug: schoolData.subdomain,
-      name: schoolData.name,
-      directorEmail: directorData.email,
-      directorName: directorData.name,
-      status: 'active', // Set status explicitly
-    } as any).returning()
-
-    const tenant = tenantResult[0]
+    // 3. Create tenant
+    const tenant = await prisma.tenants.create({
+      data: {
+        slug: schoolData.subdomain,
+        name: schoolData.name,
+        director_email: directorData.email,
+        director_name: directorData.name,
+        status: 'active',
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    })
 
     // 4. Mark invite code as used
-    const codeUsed = await markInviteCodeAsUsed(inviteCode, tenant.id)
-    if (!codeUsed) {
-      // Rollback tenant creation if invite code update fails
-      await prisma.delete(tenants).where(eq(tenants.id, tenant.id))
-      return NextResponse.json(
-        { error: 'Failed to process invite code' },
-        { status: 500 }
-      )
-    }
+    await markInviteCodeAsUsed(inviteCode, tenant.id)
 
     // 5. Cache the new tenant for immediate availability
     const cachedTenant = {
@@ -105,20 +99,24 @@ export async function POST(request: NextRequest) {
       slug: tenant.slug,
       name: tenant.name,
       status: tenant.status,
-      directorEmail: tenant.directorEmail,
-      directorName: tenant.directorName,
+      directorEmail: tenant.director_email,
+      directorName: tenant.director_name,
     }
     await RedisCloudCache.setTenant(tenant.slug, cachedTenant)
     MemoryTenantCache.setTenant(tenant.slug, cachedTenant)
 
     // 6. TODO: Create Stripe Connect account (placeholder for now)
     // const stripeAccount = await createStripeConnectAccount(tenant, schoolData)
-    
+
     // For now, create a placeholder connected account record
-    await prisma.insert(connectedAccounts).values({
-      tenantId: tenant.id,
-      stripeAccountId: `acct_placeholder_${tenant.id}`,
-      status: 'pending',
+    await prisma.connected_accounts.create({
+      data: {
+        id: crypto.randomUUID(),
+        tenant_id: tenant.id,
+        stripe_account_id: `acct_placeholder_${tenant.id}`,
+        status: 'pending',
+        created_at: new Date()
+      }
     })
 
     // 7. TODO: Generate Stripe onboarding link (placeholder for now)

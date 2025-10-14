@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 
-
-
 export async function GET(request: NextRequest) {
   try {
     // Get the current user session from Supabase
@@ -21,10 +19,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Simple query - just get students for now
-    const studentRows = await db
-      .select()
-      .from(students)
-      .where(sql`${students.tenantId} = ${tenantIdHeader}::uuid`)
+    const studentRows = await prisma.students.findMany({
+      where: {
+        tenant_id: tenantIdHeader
+      }
+    })
 
     console.log(`Found ${studentRows.length} students for tenant ${tenantIdHeader}`)
 

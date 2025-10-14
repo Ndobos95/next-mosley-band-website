@@ -54,22 +54,21 @@ async function handleHighConfidenceMatch(data: {
 }) {
   try {
     // Check if parent already has an account
-    let user = await prisma.users.findUnique({
+    let user = await prisma.user_profiles.findFirst({
       where: { email: data.parentEmail }
     })
 
     // If no user exists, create a ghost account
     if (!user) {
-      user = await prisma.users.create({
+      user = await prisma.user_profiles.create({
         data: {
           id: crypto.randomUUID(),
           email: data.parentEmail,
-          name: data.parentName,
-          isGuestAccount: true,
-          emailVerified: false,
+          display_name: data.parentName,
           role: 'PARENT',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          tenant_id: data.tenantId,
+          created_at: new Date(),
+          updated_at: new Date()
         }
       })
 
@@ -79,53 +78,53 @@ async function handleHighConfidenceMatch(data: {
     }
     
     // Check if parent-student relationship exists
-    const existingRelationship = await prisma.studentParents.findFirst({
+    const existingRelationship = await prisma.student_parents.findFirst({
       where: {
-        userId: user.id,
-        studentId: data.studentId
+        user_id: user.id,
+        student_id: data.studentId
       }
     })
 
     if (!existingRelationship) {
       // Create parent-student relationship
-      await prisma.studentParents.create({
+      await prisma.student_parents.create({
         data: {
           id: crypto.randomUUID(),
-          tenantId: data.tenantId,
-          userId: user.id,
-          studentId: data.studentId,
+          tenant_id: data.tenantId,
+          user_id: user.id,
+          student_id: data.studentId,
           status: 'ACTIVE',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          created_at: new Date(),
+          updated_at: new Date(),
         }
       })
     }
     
     // Create or find enrollment
-    let enrollment = await prisma.studentPaymentEnrollments.findFirst({
+    let enrollment = await prisma.student_payment_enrollments.findFirst({
       where: {
-        studentId: data.studentId,
-        categoryId: data.categoryId
+        student_id: data.studentId,
+        category_id: data.categoryId
       }
     })
 
     if (!enrollment) {
-      const category = await prisma.paymentCategories.findUnique({
+      const category = await prisma.payment_categories.findUnique({
         where: { id: data.categoryId }
       })
 
       if (category) {
-        enrollment = await prisma.studentPaymentEnrollments.create({
+        enrollment = await prisma.student_payment_enrollments.create({
           data: {
             id: crypto.randomUUID(),
-            tenantId: data.tenantId,
-            studentId: data.studentId,
-            categoryId: data.categoryId,
-            totalOwed: category.fullAmount,
-            amountPaid: 0,
+            tenant_id: data.tenantId,
+            student_id: data.studentId,
+            category_id: data.categoryId,
+            total_owed: category.full_amount,
+            amount_paid: 0,
             status: 'ACTIVE',
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            created_at: new Date(),
+            updated_at: new Date(),
           }
         })
       }
@@ -152,30 +151,30 @@ async function handleLowConfidenceMatch(data: {
 }) {
   try {
     // Store as guest payment for booster review - no enrollment yet
-    await prisma.guestPayments.create({
+    await prisma.guest_payments.create({
       data: {
         id: crypto.randomUUID(),
-        tenantId: data.tenantId,
-        parentName: data.parentName,
-        parentEmail: data.parentEmail,
-        studentName: data.studentName,
-        categoryId: data.categoryId,
+        tenant_id: data.tenantId,
+        parent_name: data.parentName,
+        parent_email: data.parentEmail,
+        student_name: data.studentName,
+        category_id: data.categoryId,
         amount: data.amount,
         notes: data.notes,
-        stripePaymentIntentId: `temp_${Date.now()}`,
+        stripe_payment_intent_id: `temp_${Date.now()}`,
         status: 'PENDING',
-        matchedStudentId: data.matchedStudentId ?? null,
-        resolutionNotes:
+        matched_student_id: data.matchedStudentId ?? null,
+        resolution_notes:
           data.confidence > 0.5
             ? `Possible match found with confidence ${(data.confidence * 100).toFixed(1)}%`
             : 'No matching student found',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
       }
     })
-    
+
     console.log(`📋 Stored unmatched guest payment for manual review: ${data.studentName} (confidence: ${(data.confidence * 100).toFixed(1)}%)`)
-    
+
   } catch (error) {
     console.error('Error storing unmatched guest payment:', error)
     throw error
@@ -193,22 +192,22 @@ export async function POST(request: NextRequest) {
     }
     
     // Verify payment category exists and validate amount
-    const category = await prisma.paymentCategories.findUnique({
+    const category = await prisma.payment_categories.findUnique({
       where: { id: validatedData.categoryId }
     })
-    
+
     if (!category || !category.active) {
       return NextResponse.json(
         { error: 'Invalid payment category' },
         { status: 400 }
       )
     }
-    
+
     // Validate payment amount
-    if (category.allowIncrements && category.incrementAmount) {
+    if (category.allow_increments && category.increment_amount) {
       // Check if amount is valid increment
-      if (validatedData.amount % category.incrementAmount !== 0 || 
-          validatedData.amount > category.fullAmount) {
+      if (validatedData.amount % category.increment_amount !== 0 ||
+          validatedData.amount > category.full_amount) {
         return NextResponse.json(
           { error: 'Invalid payment amount for this category' },
           { status: 400 }
@@ -216,7 +215,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Must pay full amount
-      if (validatedData.amount !== category.fullAmount) {
+      if (validatedData.amount !== category.full_amount) {
         return NextResponse.json(
           { error: 'Must pay full amount for this category' },
           { status: 400 }
@@ -241,11 +240,9 @@ export async function POST(request: NextRequest) {
         tenantId: tenant.id
       })
 
-      // Get the ghost account's Stripe customer ID for checkout
-      const ghostUser = await prisma.users.findUnique({
-        where: { email: validatedData.parentEmail }
-      })
-      stripeCustomerId = ghostUser?.stripeCustomerId || undefined
+      // Ghost account was created with stripe customer in handleHighConfidenceMatch
+      // For now, let Stripe create a new customer for this checkout session
+      stripeCustomerId = undefined
     } else {
       // Low confidence match: Store as unmatched guest payment
       await handleLowConfidenceMatch({
@@ -287,8 +284,8 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/pay`,
       customer: stripeCustomerId, // Use ghost account customer if available
       customer_email: stripeCustomerId ? undefined : validatedData.parentEmail, // Only set email if no customer
-      payment_intent_data: tenant.connectedAccountId ? {
-        transfer_data: { destination: tenant.connectedAccountId },
+      payment_intent_data: tenant.connected_account_id ? {
+        transfer_data: { destination: tenant.connected_account_id },
         application_fee_amount: applicationFeeAmount,
       } : undefined,
       metadata: {

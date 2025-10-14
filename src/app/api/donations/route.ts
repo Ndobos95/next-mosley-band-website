@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
-
-
 import { stripe } from '@/lib/stripe'
 
 export async function GET(request: NextRequest) {
@@ -16,13 +14,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user profile to check role
-    const profile = await db
-      .select()
-      .from(userProfiles)
-      .where(eq(userProfiles.id, user.id))
-      .limit(1)
+    const profile = await prisma.user_profiles.findFirst({
+      where: {
+        id: user.id
+      }
+    })
 
-    if (!profile[0] || !['DIRECTOR', 'BOOSTER'].includes(profile[0].role)) {
+    if (!profile || !['DIRECTOR', 'BOOSTER'].includes(profile.role)) {
       return NextResponse.json(
         { error: 'Unauthorized - Director or Booster access required' },
         { status: 403 }
@@ -55,24 +53,24 @@ export async function GET(request: NextRequest) {
     for (const cs of donationSessions) {
       try {
         // Check if already exists
-        const existing = (
-          await db
-            .select()
-            .from(donationsTable)
-            .where(eq(donationsTable.stripePaymentIntentId, cs.payment_intent as string))
-            .limit(1)
-        )[0]
-        
+        const existing = await prisma.donations.findFirst({
+          where: {
+            stripe_payment_intent_id: cs.payment_intent as string
+          }
+        })
+
         if (!existing) {
           // Create new donation record
-          await prisma.insert(donationsTable).values({
-            id: crypto.randomUUID(),
-            tenantId: tenantId, // Use the tenantId from request headers
-            parentName: cs.metadata!.donorName,
-            parentEmail: cs.metadata!.donorEmail,
-            amount: cs.amount_total || 0,
-            notes: cs.metadata!.message,
-            stripePaymentIntentId: cs.payment_intent as string,
+          await prisma.donations.create({
+            data: {
+              id: crypto.randomUUID(),
+              tenant_id: tenantId, // Use the tenantId from request headers
+              parent_name: cs.metadata!.donorName,
+              parent_email: cs.metadata!.donorEmail,
+              amount: cs.amount_total || 0,
+              notes: cs.metadata!.message,
+              stripe_payment_intent_id: cs.payment_intent as string,
+            }
           })
           console.log(`✅ Saved donation to database: ${cs.payment_intent}`)
         } else {
@@ -84,11 +82,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Step 3: Return database records (source of truth)
-    const donations = await db
-      .select()
-      .from(donationsTable)
-      .where(sql`${donationsTable.tenantId} = ${tenantId}::uuid`)
-      .orderBy(desc(donationsTable.createdAt))
+    const donations = await prisma.donations.findMany({
+      where: {
+        tenant_id: tenantId
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    })
 
     // Calculate totals
     const totalAmount = donations.reduce((sum, donation) => sum + donation.amount, 0)

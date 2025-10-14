@@ -1,28 +1,51 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth-server'
+import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
-
-
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
+    // Get authenticated user
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check user role
+    const profile = await prisma.user_profiles.findUnique({
+      where: { id: user.id },
+      select: { role: true }
     })
 
-    if (!session?.user || session.user.role !== 'BOOSTER') {
+    if (!profile || !['BOOSTER', 'DIRECTOR'].includes(profile.role)) {
       return NextResponse.json(
-        { error: 'Unauthorized - Booster access required' },
+        { error: 'Unauthorized - Booster/Director access required' },
         { status: 403 }
       )
     }
 
+    // Get tenant from headers
+    const tenantId = request.headers.get('x-tenant-id')
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    }
+
     // Boosters need access to students for payment resolution
-    const rows = await db
-      .select({ id: students.id, name: students.name, instrument: students.instrument, source: students.source })
-      .from(students)
-      .orderBy(asc(students.name))
+    const rows = await prisma.students.findMany({
+      where: {
+        tenant_id: tenantId
+      },
+      select: {
+        id: true,
+        name: true,
+        instrument: true,
+        source: true
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    })
 
     return NextResponse.json(rows)
   } catch (error) {

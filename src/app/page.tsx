@@ -2,24 +2,20 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 
-
-
 async function getTenantFromHeaders() {
   const headersList = await headers()
   const tenantId = headersList.get('x-tenant-id')
   const tenantSlug = headersList.get('x-tenant-slug')
-  
+
   if (tenantId && tenantSlug) {
     // We're on a tenant subdomain, fetch tenant details
-    const tenant = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.id, tenantId))
-      .limit(1)
-    
-    return tenant[0] || null
+    const tenant = await prisma.tenants.findFirst({
+      where: { id: tenantId }
+    })
+
+    return tenant || null
   }
-  
+
   return null
 }
 

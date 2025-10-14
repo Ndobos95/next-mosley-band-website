@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth-server';
+import { createClient } from '@/lib/supabase/server';
 import { prisma } from '@/lib/prisma';
 import { resolveTenant, getRequestOrigin } from '@/lib/tenancy'
 import { stripe } from '@/lib/stripe';
@@ -14,9 +14,11 @@ interface CheckoutRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession(request);
+    // Get authenticated user from Supabase
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!session?.user?.id) {
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -35,30 +37,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the student-parent relationship exists and is active
-    const sp = await prisma.studentParents.findFirst({
+    const sp = await prisma.student_parents.findFirst({
       where: {
-        tenantId: tenant.id,
-        userId: session.user.id,
-        studentId: studentId,
+        tenant_id: tenant.id,
+        user_id: user.id,
+        student_id: studentId,
         status: 'ACTIVE',
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        status: true,
-        createdAt: true,
-        studentId: true,
-        students: {
-          select: {
-            name: true
-          }
-        }
+        deleted_at: null,
       }
     });
 
     if (!sp) {
-      return NextResponse.json({ 
-        error: 'Student not found or not authorized for this parent' 
+      return NextResponse.json({
+        error: 'Student not found or not authorized for this parent'
+      }, { status: 404 });
+    }
+
+    // Get student name
+    const student = await prisma.students.findUnique({
+      where: { id: studentId },
+      select: { name: true }
+    });
+
+    if (!student) {
+      return NextResponse.json({
+        error: 'Student not found'
       }, { status: 404 });
     }
 
@@ -80,21 +83,31 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get or create Stripe customer
-    const user = await prisma.users.findUnique({
-      where: { id: session.user.id }
+    // Get user profile
+    const userProfile = await prisma.user_profiles.findUnique({
+      where: { id: user.id }
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
-    let stripeCustomerId = user.stripeCustomerId;
+    // Get or create Stripe customer (stored in stripe_cache)
+    const stripeCache = await prisma.stripe_cache.findUnique({
+      where: { user_id: user.id }
+    });
+
+    let stripeCustomerId: string | undefined;
+    if (stripeCache && stripeCache.data) {
+      const cacheData = stripeCache.data as any;
+      stripeCustomerId = cacheData.customerId;
+    }
+
     if (!stripeCustomerId) {
-      stripeCustomerId = await createStripeCustomerForUser(session.user.id);
+      stripeCustomerId = await createStripeCustomerForUser(user.id);
       if (!stripeCustomerId) {
-        return NextResponse.json({ 
-          error: 'Failed to create payment account' 
+        return NextResponse.json({
+          error: 'Failed to create payment account'
         }, { status: 500 });
       }
     }
@@ -113,7 +126,7 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `${categoryConfig.name} - ${sp.students.name}`,
+              name: `${categoryConfig.name} - ${student.name}`,
               description: incrementCount > 1
                 ? `Payment ${incrementCount} x $${(categoryConfig.increment / 100).toFixed(2)}`
                 : `Payment for ${categoryConfig.name}`,
@@ -131,10 +144,10 @@ export async function POST(request: NextRequest) {
         application_fee_amount: applicationFeeAmount,
       } : undefined,
       metadata: {
-        userId: session.user.id,
-        userEmail: user.email,
+        userId: user.id,
+        userEmail: userProfile.email,
         studentId: studentId,
-        studentName: sp.students.name,
+        studentName: student.name,
         category: category,
         incrementCount: incrementCount.toString(),
         tenantSlug: tenant.slug,

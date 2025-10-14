@@ -1,7 +1,5 @@
 import { getSession, requireAuth, requireRole } from "@/lib/auth-server"
-import { db } from "@/lib/drizzle"
-
-
+import { prisma } from "@/lib/prisma"
 import { headers } from 'next/headers'
 import { resolveTenantFromHeaders } from '@/lib/tenancy'
 import { GuestPaymentForm } from "@/components/guest-payment-form"
@@ -12,14 +10,29 @@ export const dynamic = 'force-dynamic'
 export default async function PaymentPage() {
   // TODO: Replace with Supabase Auth
   const session = null // Temporary during migration
-  
+
   const tenant = await resolveTenantFromHeaders(await headers())
   if (!tenant) throw new Error('Tenant not found')
-  const categories = await db
-    .select()
-    .from(paymentCategories)
-    .where(and(eq(paymentCategories.active, true), eq(paymentCategories.tenantId, tenant.id)))
-    .orderBy(asc(paymentCategories.name))
+
+  const categoriesData = await prisma.payment_categories.findMany({
+    where: {
+      active: true,
+      tenant_id: tenant.id
+    },
+    orderBy: {
+      name: 'asc'
+    }
+  })
+
+  // Transform database results to match component interface (snake_case -> camelCase)
+  const categories = categoriesData.map(cat => ({
+    id: cat.id,
+    name: cat.name,
+    description: cat.description,
+    fullAmount: cat.full_amount,
+    allowIncrements: cat.allow_increments,
+    incrementAmount: cat.increment_amount
+  }))
 
   // If user is authenticated, show parent payment interface
   if (session?.user) {
@@ -36,7 +49,7 @@ export default async function PaymentPage() {
             Pay for band fees, trips, or equipment without creating an account
           </p>
         </div>
-        
+
         <GuestPaymentForm categories={categories} />
         
         <div className="mt-8 text-center text-sm text-muted-foreground">

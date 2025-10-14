@@ -14,9 +14,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is director or booster
-    const profile = (
-      await prisma.select({ role: userProfiles.role }).from(userProfiles).where(eq(userProfiles.id, user.id)).limit(1)
-    )[0];
+    const profile = await prisma.user_profiles.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    });
 
     if (!profile || !['DIRECTOR', 'BOOSTER'].includes(profile.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -28,117 +29,115 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
     }
 
-    // Get users with Stripe data in this tenant
-    const usersWithStripeData = await db
-      .select({ userId: stripeCache.userId })
-      .from(stripeCache)
+    // Get users with Stripe data
+    const usersWithStripeData = await prisma.stripe_cache.findMany({
+      select: { user_id: true }
+    });
 
     // Sync payment data for all users in parallel
     await Promise.allSettled(
-      usersWithStripeData.map(u => syncStripeDataToUser(u.userId))
+      usersWithStripeData.map(u => syncStripeDataToUser(u.user_id))
     );
 
-    // Get all students with their enrollment and payment data for this tenant
-    const studentRows = await db
-      .select()
-      .from(students)
-      .where(sql`${students.tenantId} = ${tenantId}::uuid`)
-      .orderBy(asc(students.name))
-    
-    const parentRows = await db
-      .select({
-        studentId: studentParents.studentId,
-        parentName: userProfiles.displayName,
-        parentEmail: userProfiles.email,
-        status: studentParents.status,
-      })
-      .from(studentParents)
-      .leftJoin(userProfiles, eq(studentParents.userId, userProfiles.id))
-      .where(and(
-        sql`${studentParents.tenantId} = ${tenantId}::uuid`,
-        eq(studentParents.status, 'ACTIVE')
-      ))
-    
-    const enrollmentRows = await db
-      .select({
-        enrollmentId: studentPaymentEnrollments.id,
-        studentId: studentPaymentEnrollments.studentId,
-        totalOwed: studentPaymentEnrollments.totalOwed,
-        amountPaid: studentPaymentEnrollments.amountPaid,
-        status: studentPaymentEnrollments.status,
-        categoryId: paymentCategories.id,
-        categoryName: paymentCategories.name,
-      })
-      .from(studentPaymentEnrollments)
-      .leftJoin(paymentCategories, eq(studentPaymentEnrollments.categoryId, paymentCategories.id))
-      .where(sql`${studentPaymentEnrollments.tenantId} = ${tenantId}::uuid`)
-    
-    const paymentRows = await db
-      .select({
-        id: paymentsTable.id,
-        enrollmentId: paymentsTable.enrollmentId,
-        amount: paymentsTable.amount,
-        status: paymentsTable.status,
-        parentEmail: paymentsTable.parentEmail,
-        studentName: paymentsTable.studentName,
-        notes: paymentsTable.notes,
-        createdAt: paymentsTable.createdAt,
-      })
-      .from(paymentsTable)
-      .where(sql`${paymentsTable.tenantId} = ${tenantId}::uuid`)
-    
-    const guestPaymentRows = await db
-      .select()
-      .from(guestPayments)
-      .where(sql`${guestPayments.tenantId} = ${tenantId}::uuid`)
+    // Get all students for this tenant
+    const studentRows = await prisma.students.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: { name: 'asc' }
+    });
+
+    // Get parent relationships
+    const parentRows = await prisma.student_parents.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'ACTIVE'
+      }
+    });
+
+    // Get user profiles for parents
+    const parentUserIds = parentRows.map(p => p.user_id);
+    const userProfiles = await prisma.user_profiles.findMany({
+      where: {
+        id: { in: parentUserIds }
+      }
+    });
+    const userMap = new Map(userProfiles.map(u => [u.id, u]));
+
+    // Get enrollments
+    const enrollmentRows = await prisma.student_payment_enrollments.findMany({
+      where: { tenant_id: tenantId }
+    });
+
+    // Get payment categories
+    const categoryIds = enrollmentRows.map(e => e.category_id);
+    const categories = await prisma.payment_categories.findMany({
+      where: {
+        id: { in: categoryIds }
+      }
+    });
+    const categoryMap = new Map(categories.map(c => [c.id, c]));
+
+    // Get payments
+    const paymentRows = await prisma.payments.findMany({
+      where: { tenant_id: tenantId }
+    });
+
+    // Get guest payments
+    const guestPaymentRows = await prisma.guest_payments.findMany({
+      where: { tenant_id: tenantId }
+    });
 
     // Build student payment overview
     const studentsWithPayments = studentRows.map(student => {
-      const parent = parentRows.find(p => p.studentId === student.id);
-      const enrollments = enrollmentRows.filter(e => e.studentId === student.id);
-      const enrollmentIds = enrollments.map(e => e.enrollmentId);
-      const payments = paymentRows.filter(p => enrollmentIds.includes(p.enrollmentId));
-      
+      const parent = parentRows.find(p => p.student_id === student.id);
+      const parentProfile = parent ? userMap.get(parent.user_id) : null;
+
+      const enrollments = enrollmentRows.filter(e => e.student_id === student.id);
+      const enrollmentIds = enrollments.map(e => e.id);
+      const payments = paymentRows.filter(p => enrollmentIds.includes(p.enrollment_id));
+
       // Guest payments that have been matched to this student
-      const matchedGuestPayments = guestPaymentRows.filter(gp => 
-        gp.matchedStudentId === student.id && 
-        gp.resolvedAt && 
+      const matchedGuestPayments = guestPaymentRows.filter(gp =>
+        gp.matched_student_id === student.id &&
+        gp.resolved_at &&
         gp.status === 'COMPLETED'
       );
 
-      const totalOwed = enrollments.reduce((sum, e) => sum + e.totalOwed, 0);
-      const totalPaid = enrollments.reduce((sum, e) => sum + e.amountPaid, 0);
+      const totalOwed = enrollments.reduce((sum, e) => sum + e.total_owed, 0);
+      const totalPaid = enrollments.reduce((sum, e) => sum + e.amount_paid, 0);
 
       return {
         id: student.id,
         name: student.name,
         instrument: student.instrument,
-        parentName: parent?.parentName || null,
-        parentEmail: parent?.parentEmail || null,
+        parentName: parentProfile?.display_name || null,
+        parentEmail: parentProfile?.email || null,
         status: parent?.status || 'UNLINKED',
-        enrollments: enrollments.map(e => ({
-          category: e.categoryName || 'Unknown',
-          totalOwed: e.totalOwed,
-          amountPaid: e.amountPaid,
-          status: e.status,
-        })),
+        enrollments: enrollments.map(e => {
+          const category = categoryMap.get(e.category_id);
+          return {
+            category: category?.name || 'Unknown',
+            totalOwed: e.total_owed,
+            amountPaid: e.amount_paid,
+            status: e.status,
+          };
+        }),
         payments: payments.map(p => ({
           id: p.id,
           amount: p.amount,
           status: p.status,
           notes: p.notes,
-          parentEmail: p.parentEmail,
-          studentName: p.studentName,
-          createdAt: p.createdAt,
+          parentEmail: p.parent_email,
+          studentName: p.student_name,
+          createdAt: p.created_at,
         })),
         guestPayments: matchedGuestPayments.map(gp => ({
           id: gp.id,
           amount: gp.amount,
           status: gp.status,
-          parentName: gp.parentName,
-          parentEmail: gp.parentEmail,
+          parentName: gp.parent_name,
+          parentEmail: gp.parent_email,
           notes: gp.notes,
-          createdAt: gp.createdAt,
+          createdAt: gp.created_at,
         })),
         totalOwed,
         totalPaid,

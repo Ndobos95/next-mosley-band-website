@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
-
-
 import { stripe } from '@/lib/stripe'
 
 export async function GET(request: NextRequest) {
@@ -23,14 +21,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Get connected account for this tenant
-    const connectedAccount = await db
-      .select()
-      .from(connectedAccounts)
-      .where(eq(connectedAccounts.tenantId, tenantId))
-      .limit(1)
+    const connectedAccount = await prisma.connected_accounts.findFirst({
+      where: {
+        tenant_id: tenantId
+      }
+    })
 
-    if (connectedAccount.length === 0) {
-      return NextResponse.json({ 
+    if (!connectedAccount) {
+      return NextResponse.json({
         error: 'No payment account found',
         charges_enabled: false,
         payouts_enabled: false,
@@ -39,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get account details from Stripe
-    const account = await stripe.accounts.retrieve(connectedAccount[0].stripeAccountId)
+    const account = await stripe.accounts.retrieve(connectedAccount.stripe_account_id)
 
     // Update status in database if it changed
     let newStatus = 'pending_onboarding'
@@ -49,18 +47,26 @@ export async function GET(request: NextRequest) {
       newStatus = 'pending_verification'
     }
 
-    if (newStatus !== connectedAccount[0].status) {
-      await db
-        .update(connectedAccounts)
-        .set({ status: newStatus })
-        .where(eq(connectedAccounts.id, connectedAccount[0].id))
+    if (newStatus !== connectedAccount.status) {
+      await prisma.connected_accounts.update({
+        where: {
+          id: connectedAccount.id
+        },
+        data: {
+          status: newStatus
+        }
+      })
 
       // Also update tenant status if payment is fully active
       if (newStatus === 'active') {
-        await db
-          .update(tenants)
-          .set({ status: 'active' } as any)
-          .where(eq(tenants.id, tenantId))
+        await prisma.tenants.update({
+          where: {
+            id: tenantId
+          },
+          data: {
+            status: 'active'
+          }
+        })
       }
     }
 

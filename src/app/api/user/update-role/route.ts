@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 
-
-
 export async function POST(request: NextRequest) {
   try {
     // Get the current user session from Supabase
@@ -21,16 +19,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    // Update the user's role in the userProfiles table
-    await db
-      .update(userProfiles)
-      .set({ role, updatedAt: new Date() } as any)
-      .where(eq(userProfiles.id, user.id))
+    // Update the user's role in the user_profiles table
+    await prisma.user_profiles.update({
+      where: {
+        id: user.id
+      },
+      data: {
+        role,
+        updated_at: new Date()
+      }
+    })
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: `Role updated to ${role}`,
-      role 
+      role
     })
   } catch (error) {
     console.error('Error updating user role:', error)

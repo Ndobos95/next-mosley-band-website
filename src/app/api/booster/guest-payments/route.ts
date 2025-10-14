@@ -1,14 +1,11 @@
-// @ts-nocheck
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-
-
 import { resolveTenant, getRequestOrigin } from '@/lib/tenancy'
 import { stripe } from '@/lib/stripe'
 import { fuzzyMatch } from '@/lib/fuzzy-match'
 import { createStripeCustomerForUser } from '@/lib/stripe-cache'
 import { z } from 'zod'
+import { createClient } from '@/lib/supabase/server'
 
 const guestCheckoutSchema = z.object({
   parentName: z.string().min(1, 'Parent name is required'),
@@ -19,15 +16,22 @@ const guestCheckoutSchema = z.object({
   notes: z.string().optional()
 })
 
-async function findMatchingStudent(studentName: string) {
-  const studentsList = await db
-    .select({ id: students.id, name: students.name, instrument: students.instrument })
-    .from(students)
-    .where(inArray(students.source, ['ROSTER', 'MANUAL']))
-  
+async function findMatchingStudent(studentName: string, tenantId: string) {
+  const studentsList = await prisma.students.findMany({
+    where: {
+      tenant_id: tenantId,
+      source: { in: ['ROSTER', 'MANUAL'] }
+    },
+    select: {
+      id: true,
+      name: true,
+      instrument: true
+    }
+  })
+
   let bestMatch = null
   let bestScore = 0
-  
+
   for (const student of studentsList) {
     const score = fuzzyMatch(studentName, student.name)
     if (score > bestScore) {
@@ -35,7 +39,7 @@ async function findMatchingStudent(studentName: string) {
       bestMatch = student
     }
   }
-  
+
   return { student: bestMatch, confidence: bestScore }
 }
 
@@ -46,87 +50,88 @@ async function handleHighConfidenceMatch(data: {
   categoryId: string
   amount: number
   notes?: string
+  tenantId: string
 }) {
   try {
     // Check if parent already has an account
-    let user = (
-      await prisma.select().from(users).where(eq(users.email, data.parentEmail)).limit(1)
-    )[0]
-    
+    let user = await prisma.user_profiles.findFirst({
+      where: { email: data.parentEmail }
+    })
+
     // If no user exists, create a ghost account
     if (!user) {
-      const created = await db
-        .insert(users)
-        .values({
+      user = await prisma.user_profiles.create({
+        data: {
           id: crypto.randomUUID(),
           email: data.parentEmail,
-          name: data.parentName,
-          isGuestAccount: true,
-          emailVerified: false,
+          display_name: data.parentName,
           role: 'PARENT',
-        } as any)
-        .returning()
-      user = created[0]
-      
+          tenant_id: data.tenantId,
+          created_at: new Date(),
+          updated_at: new Date()
+        }
+      })
+
       // Create Stripe customer for ghost account
       await createStripeCustomerForUser(user.id)
       console.log(`👻 Created ghost account for ${data.parentEmail}`)
     }
-    
+
     // Check if parent-student relationship exists
-    const existingRelationship = (
-      await db
-        .select()
-        .from(studentParents)
-        .where(and(eq(studentParents.userId, user.id), eq(studentParents.studentId, data.studentId)))
-        .limit(1)
-    )[0]
-    
+    const existingRelationship = await prisma.student_parents.findFirst({
+      where: {
+        user_id: user.id,
+        student_id: data.studentId
+      }
+    })
+
     if (!existingRelationship) {
       // Create parent-student relationship
-      await prisma.insert(studentParents).values({
-        id: crypto.randomUUID(),
-        userId: user.id,
-        studentId: data.studentId,
-        status: 'ACTIVE',
-      } as any)
+      await prisma.student_parents.create({
+        data: {
+          id: crypto.randomUUID(),
+          user_id: user.id,
+          student_id: data.studentId,
+          tenant_id: data.tenantId,
+          status: 'ACTIVE',
+          created_at: new Date(),
+          updated_at: new Date()
+        }
+      })
     }
-    
+
     // Create or find enrollment
-    let enrollment = (
-      await db
-        .select()
-        .from(studentPaymentEnrollments)
-        .where(and(eq(studentPaymentEnrollments.studentId, data.studentId), eq(studentPaymentEnrollments.categoryId, data.categoryId)))
-        .limit(1)
-    )[0]
-    
+    let enrollment = await prisma.student_payment_enrollments.findFirst({
+      where: {
+        student_id: data.studentId,
+        category_id: data.categoryId
+      }
+    })
+
     if (!enrollment) {
-      const category = (
-        await prisma.select().from(paymentCategories).where(eq(paymentCategories.id, data.categoryId)).limit(1)
-      )[0]
-      
+      const category = await prisma.payment_categories.findFirst({
+        where: { id: data.categoryId }
+      })
+
       if (category) {
-        const createdEnrollment = await db
-          .insert(studentPaymentEnrollments)
-          .values({
+        enrollment = await prisma.student_payment_enrollments.create({
+          data: {
             id: crypto.randomUUID(),
-            tenantId: tenant.id,
-            studentId: data.studentId,
-            categoryId: data.categoryId,
-            totalOwed: category.fullAmount,
-            amountPaid: 0,
+            tenant_id: data.tenantId,
+            student_id: data.studentId,
+            category_id: data.categoryId,
+            total_owed: category.full_amount,
+            amount_paid: 0,
             status: 'ACTIVE',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .returning()
-        enrollment = createdEnrollment[0]
+            created_at: new Date(),
+            updated_at: new Date()
+          }
+        })
       }
     }
-    
+
     console.log(`✅ Created ghost account and enrollment for high confidence match: ${data.parentEmail} → ${data.studentId}`)
-    
+
   } catch (error) {
     console.error('Error handling high confidence match:', error)
     throw error
@@ -142,31 +147,34 @@ async function handleLowConfidenceMatch(data: {
   notes?: string
   matchedStudentId: string | null
   confidence: number
+  tenantId: string
 }) {
   try {
     // Store as guest payment for booster review - no enrollment yet
-    await prisma.insert(guestPayments).values({
-      id: crypto.randomUUID(),
-      tenantId: tenant.id,
-      parentName: data.parentName,
-      parentEmail: data.parentEmail,
-      studentName: data.studentName,
-      categoryId: data.categoryId,
-      amount: data.amount,
-      notes: data.notes,
-      stripePaymentIntentId: `temp_${Date.now()}`,
-      status: 'PENDING',
-      matchedStudentId: data.matchedStudentId ?? null,
-      resolutionNotes:
-        data.confidence > 0.5
-          ? `Possible match found with confidence ${(data.confidence * 100).toFixed(1)}%`
-          : 'No matching student found',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    await prisma.guest_payments.create({
+      data: {
+        id: crypto.randomUUID(),
+        tenant_id: data.tenantId,
+        parent_name: data.parentName,
+        parent_email: data.parentEmail,
+        student_name: data.studentName,
+        category_id: data.categoryId,
+        amount: data.amount,
+        notes: data.notes,
+        stripe_payment_intent_id: `temp_${Date.now()}`,
+        status: 'PENDING',
+        matched_student_id: data.matchedStudentId,
+        resolution_notes:
+          data.confidence > 0.5
+            ? `Possible match found with confidence ${(data.confidence * 100).toFixed(1)}%`
+            : 'No matching student found',
+        created_at: new Date(),
+        updated_at: new Date()
+      }
     })
-    
+
     console.log(`📋 Stored unmatched guest payment for manual review: ${data.studentName} (confidence: ${(data.confidence * 100).toFixed(1)}%)`)
-    
+
   } catch (error) {
     console.error('Error storing unmatched guest payment:', error)
     throw error
@@ -182,24 +190,24 @@ export async function POST(request: NextRequest) {
     if (!tenant) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 400 })
     }
-    
+
     // Verify payment category exists and validate amount
-    const category = (
-      await prisma.select().from(paymentCategories).where(eq(paymentCategories.id, validatedData.categoryId)).limit(1)
-    )[0]
-    
+    const category = await prisma.payment_categories.findFirst({
+      where: { id: validatedData.categoryId }
+    })
+
     if (!category || !category.active) {
       return NextResponse.json(
         { error: 'Invalid payment category' },
         { status: 400 }
       )
     }
-    
+
     // Validate payment amount
-    if (category.allowIncrements && category.incrementAmount) {
+    if (category.allow_increments && category.increment_amount) {
       // Check if amount is valid increment
-      if (validatedData.amount % category.incrementAmount !== 0 || 
-          validatedData.amount > category.fullAmount) {
+      if (validatedData.amount % category.increment_amount !== 0 ||
+          validatedData.amount > category.full_amount) {
         return NextResponse.json(
           { error: 'Invalid payment amount for this category' },
           { status: 400 }
@@ -207,19 +215,19 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Must pay full amount
-      if (validatedData.amount !== category.fullAmount) {
+      if (validatedData.amount !== category.full_amount) {
         return NextResponse.json(
           { error: 'Must pay full amount for this category' },
           { status: 400 }
         )
       }
     }
-    
+
     // Find matching student
-    const { student, confidence } = await findMatchingStudent(validatedData.studentName)
-    
+    const { student, confidence } = await findMatchingStudent(validatedData.studentName, tenant.id)
+
     let stripeCustomerId: string | undefined
-    
+
     // High confidence match (≥0.8): Create ghost account and enrollment immediately
     if (student && confidence >= 0.8) {
       await handleHighConfidenceMatch({
@@ -228,14 +236,13 @@ export async function POST(request: NextRequest) {
         studentId: student.id,
         categoryId: validatedData.categoryId,
         amount: validatedData.amount,
-        notes: validatedData.notes
+        notes: validatedData.notes,
+        tenantId: tenant.id
       })
-      
-      // Get the ghost account's Stripe customer ID for checkout
-      const ghostUser = (
-        await prisma.select().from(users).where(eq(users.email, validatedData.parentEmail)).limit(1)
-      )[0]
-      stripeCustomerId = ghostUser?.stripeCustomerId || undefined
+
+      // Ghost account was created with stripe customer in handleHighConfidenceMatch
+      // For now, let Stripe create a new customer for this checkout session
+      stripeCustomerId = undefined
     } else {
       // Low confidence match: Store as unmatched guest payment
       await handleLowConfidenceMatch({
@@ -246,15 +253,16 @@ export async function POST(request: NextRequest) {
         amount: validatedData.amount,
         notes: validatedData.notes,
         matchedStudentId: student?.id || null,
-        confidence
+        confidence,
+        tenantId: tenant.id
       })
     }
-    
+
     const origin = getRequestOrigin(request)
 
     const platformFeeBps = Number(process.env.PLATFORM_FEE_BPS || '0')
     const applicationFeeAmount = Math.floor((validatedData.amount * platformFeeBps) / 10000)
-    
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -276,8 +284,8 @@ export async function POST(request: NextRequest) {
       cancel_url: `${origin}/pay`,
       customer: stripeCustomerId, // Use ghost account customer if available
       customer_email: stripeCustomerId ? undefined : validatedData.parentEmail, // Only set email if no customer
-      payment_intent_data: tenant.connectedAccountId ? {
-        transfer_data: { destination: tenant.connectedAccountId },
+      payment_intent_data: tenant.connected_account_id ? {
+        transfer_data: { destination: tenant.connected_account_id },
         application_fee_amount: applicationFeeAmount,
       } : undefined,
       metadata: {
@@ -288,20 +296,117 @@ export async function POST(request: NextRequest) {
         tenantSlug: tenant.slug,
       }
     })
-    
+
     return NextResponse.json({ url: session.url })
   } catch (error) {
     console.error('Guest checkout error:', error)
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.errors[0].message },
         { status: 400 }
       )
     }
-    
+
     return NextResponse.json(
       { error: 'Failed to create payment session' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    // Get authenticated user
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check user role
+    const profile = await prisma.user_profiles.findUnique({
+      where: { id: user.id },
+      select: { role: true }
+    })
+
+    if (!profile || !['BOOSTER', 'DIRECTOR'].includes(profile.role)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Booster/Director access required' },
+        { status: 403 }
+      )
+    }
+
+    // Get tenant from headers
+    const tenantId = request.headers.get('x-tenant-id')
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    }
+
+    // Fetch guest payments with related data
+    const guestPaymentsData = await prisma.guest_payments.findMany({
+      where: {
+        tenant_id: tenantId
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    })
+
+    // Get related categories and students
+    const categoryIds = guestPaymentsData.map(gp => gp.category_id)
+    const categories = await prisma.payment_categories.findMany({
+      where: {
+        id: { in: categoryIds }
+      }
+    })
+    const categoryMap = new Map(categories.map(c => [c.id, c]))
+
+    const studentIds = guestPaymentsData
+      .map(gp => gp.matched_student_id)
+      .filter((id): id is string => id !== null)
+    const students = await prisma.students.findMany({
+      where: {
+        id: { in: studentIds }
+      }
+    })
+    const studentMap = new Map(students.map(s => [s.id, s]))
+
+    // Transform to match expected interface
+    const transformedPayments = guestPaymentsData.map(payment => {
+      const category = categoryMap.get(payment.category_id)
+      const matchedStudent = payment.matched_student_id
+        ? studentMap.get(payment.matched_student_id)
+        : null
+
+      return {
+        id: payment.id,
+        parentName: payment.parent_name,
+        parentEmail: payment.parent_email,
+        studentName: payment.student_name,
+        amount: payment.amount,
+        notes: payment.notes,
+        status: payment.status,
+        category: {
+          name: category?.name || 'Unknown',
+          description: category?.description || null
+        },
+        matchedStudent: matchedStudent ? {
+          id: matchedStudent.id,
+          name: matchedStudent.name,
+          instrument: matchedStudent.instrument
+        } : null,
+        resolutionNotes: payment.resolution_notes,
+        createdAt: payment.created_at.toISOString()
+      }
+    })
+
+    return NextResponse.json(transformedPayments)
+  } catch (error) {
+    console.error('Error fetching guest payments:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch guest payments' },
       { status: 500 }
     )
   }

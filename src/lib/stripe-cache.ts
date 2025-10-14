@@ -9,8 +9,8 @@ import { PAYMENT_CATEGORIES } from '@/types/stripe';
  * Get user's Stripe cache data (single source of truth)
  */
 export async function getUserStripeData(userId: string): Promise<StripeCustomerCache | null> {
-  const cache = await prisma.stripeCache.findUnique({
-    where: { userId }
+  const cache = await prisma.stripe_cache.findUnique({
+    where: { user_id: userId }
   });
 
   if (!cache) return null;
@@ -61,7 +61,7 @@ export async function getUserOutstandingBalances(userId: string) {
 export async function createStripeCustomerForUser(userId: string): Promise<string | null> {
   try {
     // Get user data
-    const user = await prisma.users.findUnique({
+    const user = await prisma.user_profiles.findUnique({
       where: { id: userId }
     });
 
@@ -70,27 +70,54 @@ export async function createStripeCustomerForUser(userId: string): Promise<strin
       return null;
     }
 
-    if (user.stripeCustomerId) {
-      console.log(`User ${userId} already has Stripe customer: ${user.stripeCustomerId}`);
-      return user.stripeCustomerId;
+    // Check if customer already exists in cache
+    const existingCache = await prisma.stripe_cache.findUnique({
+      where: { user_id: userId }
+    });
+
+    if (existingCache?.data) {
+      const cacheData = existingCache.data as any;
+      if (cacheData.customerId) {
+        console.log(`User ${userId} already has Stripe customer: ${cacheData.customerId}`);
+        return cacheData.customerId;
+      }
     }
 
     // Create Stripe customer
     const customer = await stripe.customers.create({
       email: user.email,
-      name: user.name || undefined,
+      name: user.display_name || undefined,
       metadata: {
         userId: userId,
         role: user.role
       }
     });
 
-    // Update user with customer ID
-    await prisma.users.update({
-      where: { id: userId },
-      data: {
-        stripeCustomerId: customer.id,
-        updatedAt: new Date()
+    // Store customer ID in cache
+    const initialCacheData = {
+      customerId: customer.id,
+      payments: [],
+      totals: {
+        bandFeesPaid: 0,
+        tripPaid: 0,
+        equipmentPaid: 0,
+        donationsPaid: 0
+      },
+      enrollments: {},
+      lastSync: new Date().toISOString()
+    };
+
+    await prisma.stripe_cache.upsert({
+      where: { user_id: userId },
+      create: {
+        id: crypto.randomUUID(),
+        user_id: userId,
+        data: JSON.parse(JSON.stringify(initialCacheData)),
+        updated_at: new Date()
+      },
+      update: {
+        data: JSON.parse(JSON.stringify(initialCacheData)),
+        updated_at: new Date()
       }
     });
 
@@ -109,35 +136,49 @@ export async function createStripeCustomerForUser(userId: string): Promise<strin
  */
 export async function syncStripeDataToUser(userId: string): Promise<StripeCustomerCache | null> {
   try {
-    // 1. Get user and their Stripe customer ID
-    const user = await prisma.users.findUnique({
-      where: { id: userId }
+    // 1. Get user and their Stripe customer ID from cache
+    const existingCache = await prisma.stripe_cache.findUnique({
+      where: { user_id: userId }
     });
-    
-    if (!user || !user.stripeCustomerId) {
-      console.log(`User ${userId} has no Stripe customer ID`);
+
+    if (!existingCache?.data) {
+      console.log(`User ${userId} has no Stripe cache data`);
       return null;
     }
-    
+
+    const cacheData = existingCache.data as any;
+    const stripeCustomerId = cacheData.customerId;
+
+    if (!stripeCustomerId) {
+      console.log(`User ${userId} has no Stripe customer ID in cache`);
+      return null;
+    }
+
     // 2. Fetch ALL customer data from Stripe API
     // Note: Checkout sessions create payment intents with metadata, so we should get those
     const [customer, paymentIntents, checkoutSessions] = await Promise.all([
-      stripe.customers.retrieve(user.stripeCustomerId),
+      stripe.customers.retrieve(stripeCustomerId),
       stripe.paymentIntents.list({
-        customer: user.stripeCustomerId,
+        customer: stripeCustomerId,
         limit: 100
       }),
       stripe.checkout.sessions.list({
-        customer: user.stripeCustomerId,
+        customer: stripeCustomerId,
         limit: 100 // Get checkout sessions to access their metadata
       })
     ]);
     
     if (customer.deleted) {
-      console.log(`Stripe customer ${user.stripeCustomerId} was deleted`);
+      console.log(`Stripe customer ${stripeCustomerId} was deleted`);
       return null;
     }
-    
+
+    // Type guard to ensure customer is not deleted
+    if (!('metadata' in customer)) {
+      console.log(`Stripe customer ${stripeCustomerId} has no metadata`);
+      return null;
+    }
+
     // 3. Transform payment data - need to merge checkout session metadata with payment intents
     // Create a map of payment intent ID to checkout session metadata
     const sessionMetadataMap = new Map();
@@ -151,7 +192,7 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
     const payments: StripePaymentData[] = paymentIntents.data.map(pi => {
       // Use checkout session metadata if available, otherwise use payment intent metadata
       const metadata = sessionMetadataMap.get(pi.id) || pi.metadata || {};
-      
+
       return {
         id: pi.id,
         amount: pi.amount,
@@ -166,7 +207,7 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
         }
       };
     });
-    
+
     // 4. Calculate totals by category
     const totals: PaymentTotals = {
       bandFeesPaid: 0,
@@ -174,7 +215,7 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
       equipmentPaid: 0,
       donationsPaid: 0
     };
-    
+
     payments.forEach(payment => {
       if (payment.status === 'succeeded') {
         switch (payment.metadata.category) {
@@ -193,7 +234,7 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
         }
       }
     });
-    
+
     // 5. Parse enrollments from customer metadata and update with payment totals
     const baseEnrollments = parseEnrollmentsFromMetadata(customer.metadata || {});
     
@@ -231,59 +272,65 @@ export async function syncStripeDataToUser(userId: string): Promise<StripeCustom
       for (const [categoryKey, categoryData] of Object.entries(studentData.categories)) {
         const categoryName = PAYMENT_CATEGORIES[categoryKey as keyof typeof PAYMENT_CATEGORIES].name;
 
+        // First find the payment category by name
+        const paymentCategory = await prisma.payment_categories.findFirst({
+          where: { name: categoryName },
+          select: { id: true }
+        });
+
+        if (!paymentCategory) continue;
+
         // Find the enrollment record in the database
-        const enrollment = await prisma.studentPaymentEnrollments.findFirst({
+        const enrollment = await prisma.student_payment_enrollments.findFirst({
           where: {
-            studentId: studentId,
-            paymentCategories: {
-              name: categoryName
-            }
+            student_id: studentId,
+            category_id: paymentCategory.id
           },
           select: {
             id: true,
-            amountPaid: true
+            amount_paid: true
           }
         });
 
         if (enrollment) {
-          // Update the amountPaid field with calculated value from Stripe
-          await prisma.studentPaymentEnrollments.update({
+          // Update the amount_paid field with calculated value from Stripe
+          await prisma.student_payment_enrollments.update({
             where: { id: enrollment.id },
             data: {
-              amountPaid: categoryData.amountPaid,
-              updatedAt: new Date()
+              amount_paid: categoryData.amountPaid,
+              updated_at: new Date()
             }
           });
         }
       }
     }
-    
+
     // 6. Create cache data structure
-    const cacheData: StripeCustomerCache = {
-      customerId: user.stripeCustomerId,
+    const newCacheData: StripeCustomerCache = {
+      customerId: stripeCustomerId,
       payments,
       totals,
       enrollments,
       lastSync: new Date().toISOString()
     };
-    
+
     // 7. Upsert to StripeCache table (single source of truth)
-    await prisma.stripeCache.upsert({
-      where: { userId },
+    await prisma.stripe_cache.upsert({
+      where: { user_id: userId },
       create: {
         id: crypto.randomUUID(),
-        userId,
-        data: JSON.parse(JSON.stringify(cacheData)),
-        updatedAt: new Date()
+        user_id: userId,
+        data: JSON.parse(JSON.stringify(newCacheData)),
+        updated_at: new Date()
       },
       update: {
-        data: JSON.parse(JSON.stringify(cacheData)),
-        updatedAt: new Date()
+        data: JSON.parse(JSON.stringify(newCacheData)),
+        updated_at: new Date()
       }
     });
     
     console.log(`✅ Synced Stripe data for user ${userId}: ${payments.length} payments`);
-    return cacheData;
+    return newCacheData;
     
   } catch (error) {
     console.error(`❌ Failed to sync Stripe data for user ${userId}:`, error);
@@ -324,24 +371,32 @@ export async function enrollStudentInCategory(
   category: PaymentCategory
 ): Promise<boolean> {
   try {
-    // Get user and their Stripe customer ID
-    const user = await prisma.users.findUnique({
-      where: { id: userId }
+    // Get or create Stripe customer ID from cache
+    const existingCache = await prisma.stripe_cache.findUnique({
+      where: { user_id: userId }
     });
-    
-    if (!user) {
-      console.error(`User ${userId} not found`);
-      return false;
-    }
-    
-    // Create Stripe customer if they don't have one
-    let stripeCustomerId = user.stripeCustomerId;
-    if (!stripeCustomerId) {
-      stripeCustomerId = await createStripeCustomerForUser(userId);
+
+    let stripeCustomerId: string;
+    if (existingCache?.data) {
+      const cacheData = existingCache.data as any;
+      stripeCustomerId = cacheData.customerId;
       if (!stripeCustomerId) {
+        // Create customer if cache exists but has no customer ID
+        const newCustomerId = await createStripeCustomerForUser(userId);
+        if (!newCustomerId) {
+          console.error(`Failed to create Stripe customer for user ${userId}`);
+          return false;
+        }
+        stripeCustomerId = newCustomerId;
+      }
+    } else {
+      // Create customer and cache if none exists
+      const newCustomerId = await createStripeCustomerForUser(userId);
+      if (!newCustomerId) {
         console.error(`Failed to create Stripe customer for user ${userId}`);
         return false;
       }
+      stripeCustomerId = newCustomerId;
     }
     
     // Get current enrollments
@@ -374,32 +429,34 @@ export async function enrollStudentInCategory(
     };
     
     // Create database enrollment record
-    const paymentCategory = await prisma.paymentCategories.findUnique({
+    const paymentCategory = await prisma.payment_categories.findFirst({
       where: { name: categoryConfig.name }
     });
 
     if (paymentCategory) {
-      await prisma.studentPaymentEnrollments.upsert({
+      await prisma.student_payment_enrollments.upsert({
         where: {
-          studentId_categoryId: {
-            studentId: studentId,
-            categoryId: paymentCategory.id
+          tenant_id_student_id_category_id: {
+            tenant_id: paymentCategory.tenant_id,
+            student_id: studentId,
+            category_id: paymentCategory.id
           }
         },
         create: {
           id: crypto.randomUUID(),
-          studentId: studentId,
-          categoryId: paymentCategory.id,
-          totalOwed: categoryConfig.totalAmount,
-          amountPaid: 0,
+          student_id: studentId,
+          category_id: paymentCategory.id,
+          tenant_id: paymentCategory.tenant_id,
+          total_owed: categoryConfig.totalAmount,
+          amount_paid: 0,
           status: 'ACTIVE',
-          createdAt: new Date(),
-          updatedAt: new Date()
+          created_at: new Date(),
+          updated_at: new Date()
         },
         update: {
-          totalOwed: categoryConfig.totalAmount,
+          total_owed: categoryConfig.totalAmount,
           status: 'ACTIVE',
-          updatedAt: new Date()
+          updated_at: new Date()
         }
       });
     }
@@ -433,44 +490,52 @@ export async function unenrollStudentFromCategory(
   category: PaymentCategory
 ): Promise<boolean> {
   try {
-    // Get user and their Stripe customer ID
-    const user = await prisma.users.findUnique({
-      where: { id: userId }
+    // Get Stripe customer ID from cache
+    const existingCache = await prisma.stripe_cache.findUnique({
+      where: { user_id: userId }
     });
-    
-    if (!user || !user.stripeCustomerId) {
+
+    if (!existingCache?.data) {
+      console.error(`User ${userId} has no Stripe cache data`);
+      return false;
+    }
+
+    const cacheData = existingCache.data as any;
+    const stripeCustomerId = cacheData.customerId;
+
+    if (!stripeCustomerId) {
       console.error(`User ${userId} has no Stripe customer ID`);
       return false;
     }
-    
+
     // Get current enrollments
     const currentEnrollments = await getUserEnrollments(userId);
-    
+
     // Update enrollments
     const updatedEnrollments = { ...currentEnrollments };
-    
+
     if (updatedEnrollments[studentId]?.categories[category]) {
       delete updatedEnrollments[studentId].categories[category];
-      
+
       // If no categories remain, remove the student entirely
       if (Object.keys(updatedEnrollments[studentId].categories).length === 0) {
         delete updatedEnrollments[studentId];
       }
     }
-    
+
     // Update Stripe customer metadata
-    await stripe.customers.update(user.stripeCustomerId, {
+    await stripe.customers.update(stripeCustomerId, {
       metadata: {
         enrollments: JSON.stringify(updatedEnrollments)
       }
     });
-    
+
     // Sync the updated data
     await syncStripeDataToUser(userId);
-    
+
     console.log(`✅ Unenrolled student from ${category} for user ${userId}`);
     return true;
-    
+
   } catch (error) {
     console.error(`❌ Failed to unenroll student from category:`, error);
     return false;

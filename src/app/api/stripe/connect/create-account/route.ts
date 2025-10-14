@@ -25,37 +25,38 @@ export async function POST(request: NextRequest) {
 
     // Check if user is a director for this tenant
     // TODO: Add proper role checking once membership system is in place
-    
+
     // Check if tenant already has a connected account
-    const existingAccount = await db
-      .select()
-      .from(connectedAccounts)
-      .where(eq(connectedAccounts.tenantId, tenantId))
-      .limit(1)
+    const existingAccount = await prisma.connected_accounts.findFirst({
+      where: { tenant_id: tenantId }
+    })
 
     let stripeAccountId: string
 
-    if (existingAccount.length > 0) {
+    if (existingAccount) {
       // Use existing account
-      stripeAccountId = existingAccount[0].stripeAccountId
+      stripeAccountId = existingAccount.stripe_account_id
       console.log('Using existing Stripe account:', stripeAccountId)
     } else {
       // Get tenant details
-      const tenant = await db
-        .select()
-        .from(tenants)
-        .where(eq(tenants.id, tenantId))
-        .limit(1)
+      const tenant = await prisma.tenants.findUnique({
+        where: { id: tenantId }
+      })
 
-      if (!tenant[0]) {
+      if (!tenant) {
         return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
       }
+
+      // Get user profile for email
+      const userProfile = await prisma.user_profiles.findUnique({
+        where: { id: user.id }
+      })
 
       // Create new Stripe Connect account (Express type for simplicity)
       const account = await stripe.accounts.create({
         type: 'express',
         country: 'US',
-        email: tenant[0].directorEmail || user.email,
+        email: tenant.director_email || userProfile?.email || user.email,
         capabilities: {
           card_payments: { requested: true },
           transfers: { requested: true },
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
         // Don't specify business_type - let Stripe ask during onboarding
         // This way schools can choose: individual, company, or non_profit
         business_profile: {
-          name: tenant[0].name,
+          name: tenant.name,
           product_description: 'School band program accepting payments for fees, trips, and equipment',
         },
         metadata: {
@@ -76,10 +77,14 @@ export async function POST(request: NextRequest) {
       stripeAccountId = account.id
 
       // Save to database
-      await prisma.insert(connectedAccounts).values({
-        tenantId: tenantId,
-        stripeAccountId: stripeAccountId,
-        status: 'pending_onboarding',
+      await prisma.connected_accounts.create({
+        data: {
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          stripe_account_id: stripeAccountId,
+          status: 'pending_onboarding',
+          created_at: new Date()
+        }
       })
 
       console.log('Created new Stripe account:', stripeAccountId)

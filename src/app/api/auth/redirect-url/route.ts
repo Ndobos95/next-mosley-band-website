@@ -15,24 +15,30 @@ export async function GET() {
     }
 
     // Get user's tenant memberships
-    const userMemberships = await db
-      .select({
-        tenantId: memberships.tenantId,
-        tenantSlug: tenants.slug,
-        role: memberships.role
-      })
-      .from(memberships)
-      .innerJoin(tenants, eq(memberships.tenantId, tenants.id))
-      .where(eq(memberships.userId, user.id))
-      .limit(1) // For now, assume one tenant per user
-    
+    const userMemberships = await prisma.memberships.findMany({
+      where: { user_id: user.id },
+      include: {
+        tenants: {
+          select: {
+            id: true,
+            slug: true
+          }
+        }
+      },
+      take: 1 // For now, assume one tenant per user
+    })
+
     if (userMemberships.length === 0) {
       // No tenant membership - shouldn't happen but handle gracefully
       console.error('User has no tenant membership:', user.id)
       return NextResponse.json({ redirectUrl: '/dashboard' })
     }
-    
-    const membership = userMemberships[0]
+
+    const membership = {
+      tenantId: userMemberships[0].tenant_id,
+      tenantSlug: userMemberships[0].tenants.slug,
+      role: userMemberships[0].role
+    }
     const environment = getCurrentEnvironment()
     
     // Generate the tenant-specific URL
