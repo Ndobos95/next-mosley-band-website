@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { UserSessionProvider } from "@/contexts/user-session-context";
 import { config } from "@/lib/config";
 import "./startup";
 import { TenantIndicator } from "@/components/tenant-indicator";
@@ -45,11 +46,13 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider>
-          <LayoutWrapper>
-            {children}
-          </LayoutWrapper>
-          <TenantIndicator />
-          <TenantContextEnforcer />
+          <UserSessionProvider>
+            <LayoutWrapper>
+              {children}
+            </LayoutWrapper>
+            <TenantIndicator />
+            <TenantContextEnforcer />
+          </UserSessionProvider>
         </ThemeProvider>
       </body>
     </html>
