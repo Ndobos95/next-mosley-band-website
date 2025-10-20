@@ -16,7 +16,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, User, Music, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import { LinkStudentDialog } from "@/components/link-student-dialog"
 import { createClient } from "@/lib/supabase/client"
-import { useTenant } from "@/contexts/user-session-context"
 
 const supabase = createClient()
 
