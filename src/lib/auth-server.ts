@@ -8,7 +8,6 @@ export async function getSession() {
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) return null
-    
     // Get user data from our database
     const userProfile = await prisma.user_profiles.findUnique({
       where: { id: user.id }

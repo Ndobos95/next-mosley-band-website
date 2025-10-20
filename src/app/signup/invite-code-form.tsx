@@ -2,12 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-
 export function InviteCodeForm() {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!code.trim()) return

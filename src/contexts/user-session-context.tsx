@@ -15,6 +15,7 @@ interface UserSession {
   user: User | null
   session: Session | null
   role: string | null
+  tenantId: string | null
   permissions: string[]
   isLoading: boolean
   isAuthenticated: boolean
@@ -33,18 +34,22 @@ export function UserSessionProvider({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const [permissions, setPermissions] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Extract role and permissions from JWT
-  const extractUserRole = (session: Session | null): UserRole => {
+  // Extract role, tenant_id and permissions from JWT
+  const extractUserData = (session: Session | null): UserRole & { tenantId: string | null } => {
     if (!session?.access_token) {
-      return { role: null, permissions: [] }
+      return { role: null, tenantId: null, permissions: [] }
     }
 
     try {
-      const jwt = jwtDecode(session.access_token) as { user_role?: string }
+      const jwt = jwtDecode(session.access_token) as { user_role?: string; tenant_id?: string }
       const userRole = jwt.user_role || null
+      const userTenantId = jwt.tenant_id || null
+      console.log('user_role', userRole)
+      console.log('tenant_id', userTenantId)
       
       // Map roles to permissions (you can expand this based on your RBAC system)
       const rolePermissions: Record<string, string[]> = {
@@ -56,11 +61,12 @@ export function UserSessionProvider({ children }: { children: React.ReactNode })
 
       return {
         role: userRole,
+        tenantId: userTenantId,
         permissions: userRole ? rolePermissions[userRole] || [] : []
       }
     } catch (error) {
       console.error('Error decoding JWT:', error)
-      return { role: null, permissions: [] }
+      return { role: null, tenantId: null, permissions: [] }
     }
   }
 
@@ -81,8 +87,9 @@ export function UserSessionProvider({ children }: { children: React.ReactNode })
           setSession(session)
           setUser(session?.user || null)
           
-          const { role, permissions } = extractUserRole(session)
+          const { role, tenantId, permissions } = extractUserData(session)
           setRole(role)
+          setTenantId(tenantId)
           setPermissions(permissions)
           setIsLoading(false)
         }
@@ -106,8 +113,9 @@ export function UserSessionProvider({ children }: { children: React.ReactNode })
         setSession(session)
         setUser(session?.user || null)
         
-        const { role, permissions } = extractUserRole(session)
+        const { role, tenantId, permissions } = extractUserData(session)
         setRole(role)
+        setTenantId(tenantId)
         setPermissions(permissions)
         setIsLoading(false)
       }
@@ -126,6 +134,7 @@ export function UserSessionProvider({ children }: { children: React.ReactNode })
       setUser(null)
       setSession(null)
       setRole(null)
+      setTenantId(null)
       setPermissions([])
     } catch (error) {
       console.error('Error signing out:', error)
@@ -145,8 +154,9 @@ export function UserSessionProvider({ children }: { children: React.ReactNode })
       setSession(session)
       setUser(session?.user || null)
       
-      const { role, permissions } = extractUserRole(session)
+      const { role, tenantId, permissions } = extractUserData(session)
       setRole(role)
+      setTenantId(tenantId)
       setPermissions(permissions)
     } catch (error) {
       console.error('Error refreshing session:', error)
@@ -157,6 +167,7 @@ export function UserSessionProvider({ children }: { children: React.ReactNode })
     user,
     session,
     role,
+    tenantId,
     permissions,
     isLoading,
     isAuthenticated: !!user,
@@ -191,6 +202,11 @@ export function useUser() {
 export function useRole() {
   const { role, permissions, isLoading } = useUserSession()
   return { role, permissions, isLoading }
+}
+
+export function useTenant() {
+  const { tenantId, isLoading } = useUserSession()
+  return { tenantId, isLoading }
 }
 
 export function useAuth() {

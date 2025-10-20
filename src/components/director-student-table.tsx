@@ -15,6 +15,10 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, User, Music, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import { LinkStudentDialog } from "@/components/link-student-dialog"
+import { createClient } from "@/lib/supabase/client"
+import { useTenant } from "@/contexts/user-session-context"
+
+const supabase = createClient()
 
 interface StudentWithParent {
   id: string
@@ -38,14 +42,9 @@ export function DirectorStudentTable() {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/director/students')
-      const data = await response.json()
+      const { data } = await supabase.from('students').select('*')
 
-      if (response.ok) {
-        setStudents(data.students)
-      } else {
-        setError(data.error || 'Failed to fetch students')
-      }
+        setStudents(data || [])
     } catch {
       setError('Failed to fetch students')
     } finally {
