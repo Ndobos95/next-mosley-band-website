@@ -1,19 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, Copy, CheckCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { supabase } from '@/lib/auth-client'
+import { useUserSession } from '@/contexts/user-session-context'
 
 interface InviteCode {
   id: string
   code: string
-  schoolName: string
-  directorEmail: string
   used: boolean
   usedAt: Date | null
   expiresAt: Date
@@ -23,45 +21,73 @@ interface InviteCode {
 }
 
 export default function AdminInvitesPage() {
-  const [schoolName, setSchoolName] = useState('')
-  const [directorEmail, setDirectorEmail] = useState('')
-  const [adminPassword, setAdminPassword] = useState('')
+  const { user, role, isLoading: authLoading } = useUserSession()
   const [isLoading, setIsLoading] = useState(false)
   const [generatedCode, setGeneratedCode] = useState<InviteCode | null>(null)
   const [error, setError] = useState('')
   const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([])
   const [copied, setCopied] = useState(false)
 
+  // Load invite codes on component mount
+  useEffect(() => {
+    if (user && role === 'admin') {
+      loadInviteCodes()
+    }
+  }, [user, role])
+
   const generateInvite = async () => {
+    if (!user || role !== 'admin') {
+      setError('Unauthorized: Admin access required')
+      return
+    }
+
     setIsLoading(true)
     setError('')
     setGeneratedCode(null)
 
     try {
-      const response = await fetch('/api/admin/invites', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          schoolName,
-          directorEmail,
-          adminPassword,
-        }),
-      })
+      // Generate a random 8-character code
+      const generateCode = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        let result = ''
+        for (let i = 0; i < 8; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length))
+        }
+        return result
+      }
 
-      const data = await response.json()
+      const code = generateCode()
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + 30) // Expires in 30 days
 
-      if (!response.ok) {
-        setError(data.error || 'Failed to generate invite code')
+      // Insert the invite code using Supabase
+      const { data, error: insertError } = await supabase
+        .from('invite_codes')
+        .insert({
+          code,
+          expires_at: expiresAt.toISOString(),
+          tenant_id: null // You might want to set this based on your tenant logic
+        })
+        .select()
+        .single()
+
+      if (insertError) {
+        console.error('Insert error:', insertError)
+        setError(insertError.message || 'Failed to generate invite code')
         return
       }
 
-      setGeneratedCode(data.invite)
-      setSchoolName('')
-      setDirectorEmail('')
+      setGeneratedCode({
+        id: data.id,
+        code: data.code,
+        used: data.used,
+        usedAt: data.used_at,
+        expiresAt: new Date(data.expires_at),
+        createdAt: new Date(data.created_at)
+      })
       await loadInviteCodes()
     } catch (err) {
+      console.error('Generate invite error:', err)
       setError('Failed to generate invite code')
     } finally {
       setIsLoading(false)
@@ -70,13 +96,42 @@ export default function AdminInvitesPage() {
 
   const loadInviteCodes = async () => {
     try {
-      const response = await fetch('/api/admin/invites')
-      if (response.ok) {
-        const data = await response.json()
-        setInviteCodes(data.invites || [])
+      const { data, error } = await supabase
+        .from('invite_codes')
+        .select(`
+          id,
+          code,
+          used,
+          used_at,
+          expires_at,
+          created_at,
+          tenant_id,
+          tenants (
+            slug,
+            name
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading invite codes:', error)
+        return
       }
+
+      const formattedInvites = data?.map(invite => ({
+        id: invite.id,
+        code: invite.code,
+        used: invite.used,
+        usedAt: invite.used_at ? new Date(invite.used_at) : null,
+        expiresAt: new Date(invite.expires_at),
+        createdAt: new Date(invite.created_at),
+        tenantSlug: invite.tenant_id?.name,
+        tenantName: invite.tenant_id?.name
+      })) || []
+
+      setInviteCodes(formattedInvites)
     } catch (err) {
-      console.error('Failed to load invite codes')
+      console.error('Failed to load invite codes:', err)
     }
   }
 
@@ -86,9 +141,36 @@ export default function AdminInvitesPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  // Show loading state while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="max-w-4xl mx-auto w-full">
+          <div className="text-center py-8">Loading...</div>
+        </div>
+      </div>
+    )
+  }
+
+  // Check authorization
+  if (!user || role !== 'admin') {
+    return (
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="max-w-4xl mx-auto w-full">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Access denied. Admin privileges required to manage invite codes.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
+    <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="max-w-4xl mx-auto w-full">
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Generate Invite Code</CardTitle>
@@ -97,38 +179,7 @@ export default function AdminInvitesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="schoolName">School Name</Label>
-                <Input
-                  id="schoolName"
-                  placeholder="Riverside High School"
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="directorEmail">Director Email</Label>
-                <Input
-                  id="directorEmail"
-                  type="email"
-                  placeholder="director@school.edu"
-                  value={directorEmail}
-                  onChange={(e) => setDirectorEmail(e.target.value)}
-                />
-              </div>
-            </div>
 
-            <div>
-              <Label htmlFor="adminPassword">Admin Password</Label>
-              <Input
-                id="adminPassword"
-                type="password"
-                placeholder="Enter admin password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-              />
-            </div>
 
             {error && (
               <Alert variant="destructive">
@@ -156,7 +207,7 @@ export default function AdminInvitesPage() {
                       </Button>
                     </div>
                     <div className="text-sm">
-                      Share this with {generatedCode.directorEmail} to create their account.
+                      Share this code with the school to create their account.
                     </div>
                   </div>
                 </AlertDescription>
@@ -165,7 +216,7 @@ export default function AdminInvitesPage() {
 
             <Button
               onClick={generateInvite}
-              disabled={!schoolName || !directorEmail || !adminPassword || isLoading}
+              disabled={isLoading || !user || role !== 'admin'}
               className="w-full"
             >
               {isLoading ? 'Generating...' : 'Generate Invite Code'}
@@ -197,7 +248,7 @@ export default function AdminInvitesPage() {
                         </Badge>
                       </div>
                       <div className="text-sm text-gray-600">
-                        {invite.schoolName} • {invite.directorEmail}
+                        Created: {invite.createdAt.toLocaleDateString()}
                       </div>
                       {invite.tenantSlug && (
                         <div className="text-xs text-gray-500">

@@ -51,25 +51,27 @@ CREATE TABLE "public"."guest_payments" (
     CONSTRAINT "guest_payments_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
+-- Invite Codes Migration
+-- This migration creates the invite_codes table and related constraints
+
+-- CreateTable: invite_codes
 CREATE TABLE "public"."invite_codes" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "code" TEXT NOT NULL,
-    "school_name" TEXT NOT NULL,
-    "director_email" TEXT NOT NULL,
     "used" BOOLEAN NOT NULL DEFAULT false,
-    "used_at" TIMESTAMP(6),
+    "used_at" TIMESTAMPTZ(6),
     "tenant_id" UUID,
-    "expires_at" TIMESTAMP(6) NOT NULL,
-    "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expires_at" TIMESTAMPTZ(6) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
 
     CONSTRAINT "invite_codes_pkey" PRIMARY KEY ("id")
 );
 
+
 -- CreateTable
 CREATE TABLE "public"."memberships" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "user_id" TEXT NOT NULL,
+    "user_id" UUID NOT NULL,
     "tenant_id" UUID NOT NULL,
     "role" TEXT NOT NULL,
     "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -231,7 +233,7 @@ CREATE UNIQUE INDEX "donations_stripe_payment_intent_id_unique" ON "public"."don
 -- CreateIndex
 CREATE UNIQUE INDEX "guest_payments_stripe_payment_intent_id_unique" ON "public"."guest_payments"("stripe_payment_intent_id");
 
--- CreateIndex
+-- CreateIndex: Unique index for invite codes
 CREATE UNIQUE INDEX "invite_codes_code_unique" ON "public"."invite_codes"("code");
 
 -- CreateIndex
@@ -271,9 +273,6 @@ ALTER TABLE "public"."donations" ADD CONSTRAINT "donations_tenant_id_tenants_id_
 ALTER TABLE "public"."guest_payments" ADD CONSTRAINT "guest_payments_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."invite_codes" ADD CONSTRAINT "invite_codes_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-
--- AddForeignKey
 ALTER TABLE "public"."memberships" ADD CONSTRAINT "memberships_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
@@ -296,3 +295,6 @@ ALTER TABLE "public"."students" ADD CONSTRAINT "students_tenant_id_tenants_id_fk
 
 -- AddForeignKey
 ALTER TABLE "public"."user_profiles" ADD CONSTRAINT "user_profiles_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- AddForeignKey: Foreign key constraint
+ALTER TABLE "public"."invite_codes" ADD CONSTRAINT "invite_codes_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION;

@@ -58,8 +58,6 @@ model guest_payments {
 model invite_codes {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code           String    @unique(map: "invite_codes_code_unique")
-  school_name    String
-  director_email String
   used           Boolean   @default(false)
   used_at        DateTime? @db.Timestamp(6)
   tenant_id      String?   @db.Uuid
@@ -220,3 +218,5 @@ model waitlist {
   @@index([created_at], map: "idx_waitlist_created_at")
   @@index([email], map: "idx_waitlist_email")
 }
+
+

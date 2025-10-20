@@ -2,9 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Calendar, CreditCard, FileText, LogIn, LogOut, LayoutDashboard, Music, Heart, UserPlus } from "lucide-react"
-import { signOut, supabase } from "@/lib/auth-client"
-
+import { useUserSession } from "@/contexts/user-session-context"
 import {
   Sidebar,
   SidebarContent,
@@ -17,55 +15,12 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-
-// Band program navigation data
-const data = {
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutDashboard,
-    },
-    {
-      title: "Payments", 
-      url: "/pay",
-      icon: CreditCard,
-    },
-    {
-      title: "Donate",
-      url: "/donate",
-      icon: Heart,
-    },
-    {
-      title: "Files",
-      url: "/files", 
-      icon: FileText,
-    },
-    {
-      title: "Calendar",
-      url: "/calendar",
-      icon: Calendar,
-    },
-  ],
-}
+import { adminSidebar, defaultSidebar } from "@/config/sidebar"
+import { LogIn, LogOut, Music, UserPlus } from "lucide-react"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [session, setSession] = React.useState<any>(null)
-
-  React.useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
+  const { user, role, signOut, isLoading } = useUserSession()
+  console.log("role", role)
   const handleLogout = async () => {
     try {
       await signOut()
@@ -76,6 +31,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }
 
+  const navMain = role === 'admin' ? adminSidebar : defaultSidebar
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -99,7 +55,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {data.navMain.map((item) => (
+              {navMain.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <Link href={item.url}>
@@ -116,7 +72,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            {session?.user ? (
+            {user ? (
               <SidebarMenuButton onClick={handleLogout}>
                 <LogOut />
                 <span>Logout</span>
