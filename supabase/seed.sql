@@ -10,6 +10,7 @@
 -- Password for all test users: password123
 
 -- Clean up existing data (in reverse dependency order)
+TRUNCATE TABLE user_roles CASCADE;
 TRUNCATE TABLE memberships CASCADE;
 TRUNCATE TABLE user_profiles CASCADE;
 TRUNCATE TABLE students CASCADE;
@@ -76,6 +77,8 @@ BEGIN
   VALUES (v_user_id, 'director@default.edu', 'DIRECTOR', 'Sarah Thompson', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'DIRECTOR', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'director');
 
   -- Booster
   v_user_id := gen_random_uuid();
@@ -93,6 +96,8 @@ BEGIN
   VALUES (v_user_id, 'booster@default.edu', 'BOOSTER', 'Default Booster', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'BOOSTER', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'booster');
 
   -- Parent 1
   v_user_id := gen_random_uuid();
@@ -110,6 +115,8 @@ BEGIN
   VALUES (v_user_id, 'parent1@default.edu', 'PARENT', 'Parent 1 (Default)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
 
   -- Parent 2
   v_user_id := gen_random_uuid();
@@ -127,6 +134,8 @@ BEGIN
   VALUES (v_user_id, 'parent2@default.edu', 'PARENT', 'Parent 2 (Default)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
 
   -- Parent 3
   v_user_id := gen_random_uuid();
@@ -144,6 +153,8 @@ BEGIN
   VALUES (v_user_id, 'parent3@default.edu', 'PARENT', 'Parent 3 (Default)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
 END $$;
 
 -- =============================================================================
@@ -202,6 +213,8 @@ BEGIN
   VALUES (v_user_id, 'director@riverside.edu', 'DIRECTOR', 'Michael Rodriguez', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'DIRECTOR', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'director');
 
   -- Booster
   v_user_id := gen_random_uuid();
@@ -219,6 +232,8 @@ BEGIN
   VALUES (v_user_id, 'booster@riverside.edu', 'BOOSTER', 'Riverside Booster', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'BOOSTER', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'booster');
 
   -- Parent 1
   v_user_id := gen_random_uuid();
@@ -236,6 +251,8 @@ BEGIN
   VALUES (v_user_id, 'parent1@riverside.edu', 'PARENT', 'Parent 1 (Riverside)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
 
   -- Parent 2
   v_user_id := gen_random_uuid();
@@ -253,6 +270,8 @@ BEGIN
   VALUES (v_user_id, 'parent2@riverside.edu', 'PARENT', 'Parent 2 (Riverside)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
 
   -- Parent 3
   v_user_id := gen_random_uuid();
@@ -270,6 +289,8 @@ BEGIN
   VALUES (v_user_id, 'parent3@riverside.edu', 'PARENT', 'Parent 3 (Riverside)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
 END $$;
 
 -- =============================================================================
@@ -328,6 +349,8 @@ BEGIN
   VALUES (v_user_id, 'director@northview.edu', 'DIRECTOR', 'Jennifer Chen', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'DIRECTOR', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'director');
 
   -- Booster
   v_user_id := gen_random_uuid();
@@ -345,6 +368,8 @@ BEGIN
   VALUES (v_user_id, 'booster@northview.edu', 'BOOSTER', 'Northview Booster', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'BOOSTER', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'booster');
 
   -- Parent 1
   v_user_id := gen_random_uuid();
@@ -362,6 +387,8 @@ BEGIN
   VALUES (v_user_id, 'parent1@northview.edu', 'PARENT', 'Parent 1 (Northview)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
 
   -- Parent 2
   v_user_id := gen_random_uuid();
@@ -379,6 +406,8 @@ BEGIN
   VALUES (v_user_id, 'parent2@northview.edu', 'PARENT', 'Parent 2 (Northview)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
 
   -- Parent 3
   v_user_id := gen_random_uuid();
@@ -396,6 +425,42 @@ BEGIN
   VALUES (v_user_id, 'parent3@northview.edu', 'PARENT', 'Parent 3 (Northview)', v_tenant_id, NOW(), NOW());
   INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
   VALUES (gen_random_uuid(), v_user_id, v_tenant_id, 'PARENT', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'parent');
+END $$;
+
+-- =============================================================================
+-- PLATFORM ADMIN USER (Cross-Tenant Access)
+-- =============================================================================
+
+DO $$
+DECLARE
+  v_user_id UUID;
+  v_default_tenant_id UUID;
+BEGIN
+  -- Get the default tenant ID for initial admin association
+  SELECT id INTO v_default_tenant_id FROM tenants WHERE slug = 'default' LIMIT 1;
+
+  -- Create platform admin user
+  v_user_id := gen_random_uuid();
+  INSERT INTO auth.users (
+    id, instance_id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role, raw_user_meta_data,
+    confirmation_token, recovery_token, email_change_token_new, email_change, email_change_token_current, reauthentication_token
+  )
+  VALUES (
+    v_user_id, '00000000-0000-0000-0000-000000000000', 'admin@platform.com', crypt('password123', gen_salt('bf')), NOW(), NOW(), NOW(), 'authenticated', 'authenticated', jsonb_build_object('name', 'Platform Admin', 'tenantId', v_default_tenant_id),
+    '', '', '', '', '', ''
+  );
+  INSERT INTO auth.identities (id, user_id, provider, provider_id, identity_data, created_at, updated_at)
+  VALUES (gen_random_uuid(), v_user_id, 'email', 'admin@platform.com', jsonb_build_object('sub', v_user_id::text, 'email', 'admin@platform.com'), NOW(), NOW());
+  INSERT INTO user_profiles (id, email, role, display_name, tenant_id, created_at, updated_at)
+  VALUES (v_user_id, 'admin@platform.com', 'ADMIN', 'Platform Admin', v_default_tenant_id, NOW(), NOW());
+  INSERT INTO memberships (id, user_id, tenant_id, role, created_at)
+  VALUES (gen_random_uuid(), v_user_id, v_default_tenant_id, 'ADMIN', NOW());
+  INSERT INTO user_roles (user_id, role)
+  VALUES (v_user_id, 'admin');
+
+  RAISE NOTICE '✅ Created Platform Admin: admin@platform.com';
 END $$;
 
 -- =============================================================================
@@ -411,13 +476,16 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE 'Created:';
   RAISE NOTICE '  ✅ 3 Tenants (Default, Riverside, Northview) with proper random UUIDs';
-  RAISE NOTICE '  ✅ 15 Auth Users (5 per tenant: Director, Booster, 3 Parents)';
-  RAISE NOTICE '  ✅ 15 User Profiles (linked to auth users)';
-  RAISE NOTICE '  ✅ 15 Memberships (user-tenant associations)';
+  RAISE NOTICE '  ✅ 16 Auth Users (5 per tenant + 1 Platform Admin)';
+  RAISE NOTICE '  ✅ 16 User Profiles (linked to auth users)';
+  RAISE NOTICE '  ✅ 16 Memberships (user-tenant associations)';
   RAISE NOTICE '  ✅ 9 Payment Categories (3 per tenant)';
   RAISE NOTICE '  ✅ 45 Students (15 per tenant)';
   RAISE NOTICE '';
   RAISE NOTICE '📝 Test Credentials (Password: password123):';
+  RAISE NOTICE '  🔐 Platform Admin (Cross-Tenant Access):';
+  RAISE NOTICE '    admin@platform.com';
+  RAISE NOTICE '';
   RAISE NOTICE '  Default Band Program:';
   RAISE NOTICE '    director@default.edu, booster@default.edu';
   RAISE NOTICE '    parent1@default.edu, parent2@default.edu, parent3@default.edu';
