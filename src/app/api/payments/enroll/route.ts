@@ -14,6 +14,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Extract tenant slug from query params (passed by client)
+    const tenantSlug = request.nextUrl.searchParams.get('tenant')
+    if (!tenantSlug) {
+      return NextResponse.json({ error: 'Missing tenant parameter' }, { status: 400 })
+    }
+
     const body: EnrollmentRequest = await request.json();
     const { studentId, category } = body;
 
@@ -94,6 +100,12 @@ export async function DELETE(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Extract tenant slug from query params (passed by client)
+    const tenantSlug = request.nextUrl.searchParams.get('tenant')
+    if (!tenantSlug) {
+      return NextResponse.json({ error: 'Missing tenant parameter' }, { status: 400 })
     }
 
     const body: EnrollmentRequest = await request.json();

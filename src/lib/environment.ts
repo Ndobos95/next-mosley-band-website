@@ -1,32 +1,20 @@
 /**
  * Environment configuration for multi-tenant routing
- * Handles production and staging environments with prefix pattern
- * 
- * Pattern:
- * - Production: riverside.boosted.band
- * - Staging: demo-riverside.boosted.band
- * - Staging main: demo.boosted.band
+ * Uses slug-based routing pattern: boosted.band/{tenant-slug}/...
  */
 
 export type Environment = 'production' | 'staging' | 'development'
 
-interface ParsedHostname {
-  environment: Environment
-  isTenantRequest: boolean
-  tenantSlug?: string
-  isMainSite: boolean
-  isReserved: boolean
-}
-
-// Reserved subdomains that can't be used as tenant names
-export const RESERVED_SUBDOMAINS = [
-  'www', 'api', 'admin', 'app', 
-  'demo', // Reserved for staging main site
+// Reserved slugs that can't be used as tenant names
+export const RESERVED_SLUGS = [
+  'www', 'api', 'admin', 'app',
+  'login', 'register', 'signup', 'select-tenant',
   'mail', 'blog', 'help', 'support',
   'waitlist', 'pricing', 'about', 'contact', 'careers',
   'cdn', 'assets', 'static', 'media', 'files', 'uploads',
-  'email', 'mx', 'ns', 'dns', 'vpn', 'ssh', 
-  'dev', 'staging', 'test', 'beta', 'alpha', 'preview', 'sandbox'
+  'email', 'mx', 'ns', 'dns', 'vpn', 'ssh',
+  'dev', 'staging', 'test', 'beta', 'alpha', 'preview', 'sandbox',
+  'dashboard', 'students', 'payments', 'settings', 'profile'
 ]
 
 /**
@@ -63,110 +51,6 @@ export function getCurrentEnvironment(): Environment {
   return 'development'
 }
 
-/**
- * Parse hostname to determine environment and tenant
- * 
- * Examples:
- * - boosted.band → production main site
- * - riverside.boosted.band → production tenant
- * - boostedband.dev → staging main site
- * - riverside.boostedband.dev → staging tenant
- * - riverside.localhost → development tenant
- */
-export function parseHostname(hostname: string): ParsedHostname {
-  // Remove port if present
-  const host = hostname.split(':')[0].toLowerCase()
-  const parts = host.split('.')
-  
-  // Development environment (localhost)
-  if (host.includes('localhost')) {
-    if (parts.length === 1 || parts[0] === 'localhost') {
-      // localhost:3000 - main site
-      return {
-        environment: 'development',
-        isTenantRequest: false,
-        isMainSite: true,
-        isReserved: false
-      }
-    }
-    
-    // tenant.localhost - tenant site
-    const subdomain = parts[0]
-    const isReserved = RESERVED_SUBDOMAINS.includes(subdomain)
-    
-    return {
-      environment: 'development',
-      isTenantRequest: !isReserved,
-      tenantSlug: !isReserved ? subdomain : undefined,
-      isMainSite: false,
-      isReserved
-    }
-  }
-  
-  // Staging environment (boostedband.dev)
-  if (host.includes('boostedband.dev')) {
-    // Main domain (boostedband.dev or www.boostedband.dev)
-    if (host === 'boostedband.dev' || host === 'www.boostedband.dev') {
-      return {
-        environment: 'staging',
-        isTenantRequest: false,
-        isMainSite: true,
-        isReserved: false
-      }
-    }
-    
-    // Must be subdomain.boostedband.dev pattern
-    if (parts.length === 3 && parts[1] === 'boostedband' && parts[2] === 'dev') {
-      const subdomain = parts[0]
-      const isReserved = RESERVED_SUBDOMAINS.includes(subdomain)
-      
-      // *.boostedband.dev - staging tenant or reserved
-      return {
-        environment: 'staging',
-        isTenantRequest: !isReserved,
-        tenantSlug: !isReserved ? subdomain : undefined,
-        isMainSite: false,
-        isReserved
-      }
-    }
-  }
-  
-  // Production environment (boosted.band)
-  if (host.includes('boosted.band')) {
-    // Main domain (boosted.band or www.boosted.band)
-    if (host === 'boosted.band' || host === 'www.boosted.band') {
-      return {
-        environment: 'production',
-        isTenantRequest: false,
-        isMainSite: true,
-        isReserved: false
-      }
-    }
-    
-    // Must be subdomain.boosted.band pattern
-    if (parts.length === 3 && parts[1] === 'boosted' && parts[2] === 'band') {
-      const subdomain = parts[0]
-      const isReserved = RESERVED_SUBDOMAINS.includes(subdomain)
-      
-      // *.boosted.band - production tenant or reserved
-      return {
-        environment: 'production',
-        isTenantRequest: !isReserved,
-        tenantSlug: !isReserved ? subdomain : undefined,
-        isMainSite: false,
-        isReserved
-      }
-    }
-  }
-  
-  // Unknown pattern - treat as main site
-  return {
-    environment: 'development',
-    isTenantRequest: false,
-    isMainSite: true,
-    isReserved: false
-  }
-}
 
 /**
  * Get the base URL for the current environment
@@ -189,19 +73,16 @@ export function getBaseUrl(environment: Environment = getCurrentEnvironment()): 
 }
 
 /**
- * Generate a tenant URL for the current environment
+ * Generate a tenant URL for the current environment using slug-based routing
+ * Examples:
+ *  - production: https://boosted.band/mosley-band
+ *  - staging: https://boostedband.dev/mosley-band
+ *  - development: http://localhost:3000/mosley-band
  */
-export function getTenantUrl(tenantSlug: string, environment: Environment = getCurrentEnvironment()): string {
-  switch (environment) {
-    case 'production':
-      return `https://${tenantSlug}.boosted.band`
-    case 'staging':
-      return `https://${tenantSlug}.boostedband.dev`
-    case 'development':
-      return `http://${tenantSlug}.localhost:3000`
-    default:
-      return `http://${tenantSlug}.localhost:3000`
-  }
+export function getTenantUrl(tenantSlug: string, path: string = '', environment: Environment = getCurrentEnvironment()): string {
+  const baseUrl = getBaseUrl(environment)
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${baseUrl}/${tenantSlug}${normalizedPath}`
 }
 
 /**
@@ -224,14 +105,24 @@ export function getTenantFilter(environment: Environment = getCurrentEnvironment
 }
 
 /**
- * Check if a subdomain is available for use
+ * Check if a slug is available for use as a tenant identifier
  */
-export function isSubdomainAvailable(subdomain: string): boolean {
+export function isSlugAvailable(slug: string): boolean {
   // Check reserved list
-  if (RESERVED_SUBDOMAINS.includes(subdomain)) {
+  if (RESERVED_SLUGS.includes(slug.toLowerCase())) {
     return false
   }
-  
-  // Simple and clean - just check reserved list
+
+  // Must be alphanumeric with hyphens only
+  const slugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/
+  if (!slugPattern.test(slug)) {
+    return false
+  }
+
+  // Must be between 3-50 characters
+  if (slug.length < 3 || slug.length > 50) {
+    return false
+  }
+
   return true
 }

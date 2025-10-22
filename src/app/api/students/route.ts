@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireTenant } from '@/lib/auth-context'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Get authenticated user and tenant context
-    const { user, tenant } = await requireTenant()
+    // Extract tenant slug from query parameter
+    const tenantSlug = request.nextUrl.searchParams.get('tenant')
+
+    if (!tenantSlug) {
+      return NextResponse.json({ error: 'Missing tenant parameter' }, { status: 400 })
+    }
+
+    // Get authenticated user and tenant context (session-only approach)
+    const { user, tenant } = await requireTenant(tenantSlug)
 
     // Fetch parent's students (exclude rejected ones)
     const relationships = await prisma.student_parents.findMany({

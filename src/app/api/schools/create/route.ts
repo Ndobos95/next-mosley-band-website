@@ -3,9 +3,7 @@ import { prisma } from '@/lib/prisma'
 
 
 import { validateInviteCode, markInviteCodeAsUsed } from '@/lib/invite-codes'
-import { isValidSubdomain } from '@/lib/tenant-context'
-import { isSubdomainAvailable, getCurrentEnvironment } from '@/lib/environment'
-import { getTenantBySlug } from '@/lib/tenant-context'
+import { isSlugAvailable, getCurrentEnvironment } from '@/lib/environment'
 import { RedisCloudCache } from '@/lib/redis-cloud'
 import { MemoryTenantCache } from '@/lib/tenant-memory-cache'
 
@@ -49,30 +47,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 2. Validate subdomain
+    // 2. Validate slug
     const environment = getCurrentEnvironment()
-    
-    if (!isValidSubdomain(schoolData.subdomain)) {
+
+    // Check if slug is valid and available (not reserved)
+    const formatValid = isSlugAvailable(schoolData.subdomain)
+    if (!formatValid) {
       return NextResponse.json(
-        { error: 'Invalid subdomain format' },
+        { error: 'This slug is reserved or has an invalid format. Use only lowercase letters, numbers, and hyphens.' },
         { status: 400 }
       )
     }
 
-    // Check if subdomain is reserved or has invalid prefixes for environment
-    const formatValid = isSubdomainAvailable(schoolData.subdomain)
-    if (!formatValid) {
-      return NextResponse.json(
-        { error: 'This subdomain is reserved or not allowed' },
-        { status: 400 }
-      )
-    }
-    
-    // Check if subdomain already exists in database
-    const existingTenant = await getTenantBySlug(schoolData.subdomain)
+    // Check if slug already exists in database
+    const existingTenant = await prisma.tenants.findUnique({
+      where: { slug: schoolData.subdomain }
+    })
     if (existingTenant) {
       return NextResponse.json(
-        { error: 'Subdomain is already taken' },
+        { error: 'Slug is already taken' },
         { status: 400 }
       )
     }

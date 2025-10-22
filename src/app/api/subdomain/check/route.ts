@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { isValidSubdomain } from '@/lib/tenant-context'
-import { isSubdomainAvailable as checkAvailability, getCurrentEnvironment } from '@/lib/environment'
-import { getTenantBySlug } from '@/lib/tenant-context'
+import { isSlugAvailable as checkSlugAvailability, getCurrentEnvironment } from '@/lib/environment'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -14,27 +13,22 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!isValidSubdomain(subdomain)) {
-    return NextResponse.json({
-      available: false,
-      error: 'Invalid format. Use 3-63 characters, letters, numbers, and hyphens only.'
-    })
-  }
-
   try {
     const environment = getCurrentEnvironment()
-    
-    // Check if subdomain is in reserved list or has invalid prefixes
-    const formatAvailable = checkAvailability(subdomain)
+
+    // Check if slug is valid and available (not reserved)
+    const formatAvailable = checkSlugAvailability(subdomain)
     if (!formatAvailable) {
       return NextResponse.json({
         available: false,
-        error: 'This subdomain is reserved or not allowed'
+        error: 'This slug is reserved or has an invalid format. Use 3-50 characters, lowercase letters, numbers, and hyphens only.'
       })
     }
-    
-    // Check if subdomain already exists in database
-    const existing = await getTenantBySlug(subdomain)
+
+    // Check if slug already exists in database
+    const existing = await prisma.tenants.findUnique({
+      where: { slug: subdomain }
+    })
     const available = existing === null
     
     return NextResponse.json({

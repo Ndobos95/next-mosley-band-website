@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { headers } from 'next/headers'
 import { resolveTenantFromHeaders } from '@/lib/tenancy'
@@ -53,7 +54,7 @@ export default async function PaymentPage() {
         
         <div className="mt-8 text-center text-sm text-muted-foreground">
           <p>
-            Have an account? <a href="/dashboard" className="text-primary hover:underline">Sign in to view your payment history</a>
+            Have an account? <Link href="/login" className="text-primary hover:underline">Sign in to view your payment history</Link>
           </p>
         </div>
       </div>

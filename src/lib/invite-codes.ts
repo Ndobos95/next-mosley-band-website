@@ -21,18 +21,17 @@ export async function createInviteCode({
   const invite = await prisma.invite_codes.create({
     data: {
       code,
-      school_name: schoolName,
-      director_email: directorEmail,
       expires_at: expiresAt,
-      used: false
+      used: false,
+      // tenant_id will be set when the invite code is used
     }
   })
 
   return {
     id: invite.id,
     code: invite.code,
-    schoolName: invite.school_name,
-    directorEmail: invite.director_email,
+    schoolName: schoolName, // Not stored in DB, passed through from input
+    directorEmail: directorEmail, // Not stored in DB, passed through from input
     used: invite.used,
     usedAt: invite.used_at,
     expiresAt: invite.expires_at,
@@ -53,8 +52,8 @@ export async function listInviteCodes() {
   return invites.map(invite => ({
     id: invite.id,
     code: invite.code,
-    schoolName: invite.school_name,
-    directorEmail: invite.director_email,
+    schoolName: invite.tenants?.name || 'No School',
+    directorEmail: invite.tenants?.director_email || 'No Director',
     used: invite.used,
     usedAt: invite.used_at,
     expiresAt: invite.expires_at,
@@ -89,8 +88,8 @@ export async function validateInviteCode(code: string) {
     invite: {
       id: invite.id,
       code: invite.code,
-      schoolName: invite.school_name,
-      directorEmail: invite.director_email,
+      schoolName: invite.tenants?.name || 'No School',
+      directorEmail: invite.tenants?.director_email || 'No Director',
       expiresAt: invite.expires_at
     }
   }

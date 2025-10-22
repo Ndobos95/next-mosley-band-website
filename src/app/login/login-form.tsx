@@ -45,39 +45,12 @@ function LoginFormContent({ tenant }: LoginFormProps) {
       if (result.error) {
         setError(result.error.message || "An error occurred")
       } else if (result.data?.user) {
-        // Create profile if it doesn't exist (for email confirmation flow)
-        try {
-          const response = await fetch('/api/auth/create-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              displayName: result.data.user.user_metadata?.full_name || email.split('@')[0]
-            })
-          })
-          
-          // Ignore 409 errors (profile already exists)
-          if (!response.ok && response.status !== 409) {
-            console.warn('Profile creation failed:', response.status, await response.text())
-          }
-        } catch (error) {
-          console.warn('Profile creation error:', error)
-          // Don't block login for profile creation failures
-        }
-        
-        // Get the tenant-specific redirect URL
+        // Login successful - JWT already contains tenant_memberships from custom hook
+        // Get the tenant-specific redirect URL (handles slug-based routing)
         const redirectUrl = await getLoginRedirectUrl()
-        
-        // Check if we need to redirect to a different domain/subdomain
-        const currentHost = window.location.host
-        const redirectHost = new URL(redirectUrl, window.location.origin).host
-        
-        if (currentHost !== redirectHost) {
-          // Redirecting to tenant subdomain
-          window.location.href = redirectUrl
-        } else {
-          // Already on correct subdomain, just navigate to dashboard
-          window.location.href = "/dashboard"
-        }
+
+        // Navigate to the redirect URL (could be /tenant-slug/dashboard or /select-tenant)
+        window.location.href = redirectUrl
       }
     } catch {
       setError("An unexpected error occurred. Please try again.")

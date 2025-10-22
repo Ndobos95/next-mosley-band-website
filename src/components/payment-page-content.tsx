@@ -1,18 +1,26 @@
 "use client"
 
 import { ArrowLeft } from "lucide-react"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { StudentCards } from "@/components/student-cards"
 import Link from "next/link"
+import { extractTenantSlugFromPath } from "@/lib/tenant-utils"
 
 export function PaymentPageContent() {
+  const pathname = usePathname()
+  const tenantSlug = extractTenantSlugFromPath(pathname)
+
+  // Build tenant-scoped dashboard URL
+  const dashboardUrl = tenantSlug ? `/${tenantSlug}/dashboard` : '/dashboard'
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-4">
-            <Link href="/dashboard">
+            <Link href={dashboardUrl}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
@@ -33,7 +41,7 @@ export function PaymentPageContent() {
         {/* Footer */}
         <div className="mt-8 text-center">
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p>Need to manage your enrollments? <Link href="/dashboard" className="text-primary hover:underline">Go to Dashboard</Link></p>
+            <p>Need to manage your enrollments? <Link href={dashboardUrl} className="text-primary hover:underline">Go to Dashboard</Link></p>
             <p>Questions about payments? Contact the band director.</p>
           </div>
         </div>

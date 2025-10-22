@@ -1,54 +1,39 @@
 import { NextResponse } from 'next/server'
+import { getPostLoginRedirect, getUserTenantMemberships } from '@/lib/tenant-context'
 import { createClient } from '@/lib/supabase/server'
-import { prisma } from '@/lib/prisma'
-
-
-import { getCurrentEnvironment, getTenantUrl } from '@/lib/environment'
 
 export async function GET() {
   try {
+    // DEBUG: Check what's in the JWT
     const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
 
-    if (error || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    console.log('🔍 JWT DEBUG - User ID:', session?.user?.id)
+    console.log('🔍 JWT DEBUG - Session user object:', JSON.stringify(session?.user, null, 2))
+    console.log('🔍 JWT DEBUG - Session object keys:', Object.keys(session || {}))
 
-    // Get user's tenant memberships
-    const userMemberships = await prisma.memberships.findMany({
-      where: { user_id: user.id },
-      include: {
-        tenants: {
-          select: {
-            id: true,
-            slug: true
-          }
+    const memberships = await getUserTenantMemberships()
+    console.log('🔍 JWT DEBUG - Memberships found:', memberships.length, JSON.stringify(memberships, null, 2))
+
+    // Use the centralized post-login redirect logic
+    const redirectUrl = await getPostLoginRedirect()
+
+    if (!redirectUrl) {
+      // No tenant memberships - should show error
+      return NextResponse.json({
+        error: 'No tenant access',
+        debug: {
+          userId: session?.user?.id,
+          hasMemberships: memberships.length > 0,
+          memberships: memberships
         }
-      },
-      take: 1 // For now, assume one tenant per user
-    })
-
-    if (userMemberships.length === 0) {
-      // No tenant membership - shouldn't happen but handle gracefully
-      console.error('User has no tenant membership:', user.id)
-      return NextResponse.json({ redirectUrl: '/dashboard' })
+      }, { status: 403 })
     }
 
-    const membership = {
-      tenantId: userMemberships[0].tenant_id,
-      tenantSlug: userMemberships[0].tenants.slug,
-      role: userMemberships[0].role
-    }
-    const environment = getCurrentEnvironment()
-    
-    // Generate the tenant-specific URL
-    const tenantUrl = getTenantUrl(membership.tenantSlug, environment)
-    const redirectUrl = `${tenantUrl}/dashboard`
-    
     return NextResponse.json({ redirectUrl })
-    
+
   } catch (error) {
     console.error('Error getting login redirect URL:', error)
-    return NextResponse.json({ redirectUrl: '/dashboard' })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

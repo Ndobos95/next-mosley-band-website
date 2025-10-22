@@ -2,17 +2,20 @@ import { prisma } from './prisma'
 import { NextRequest } from 'next/server'
 
 /**
- * Resolve tenant from Next.js request
- * Used in API routes and middleware
+ * Resolve tenant from Next.js request (session-only approach)
+ * Reads tenant slug from query parameter passed by client
  */
 export async function resolveTenant(request: NextRequest) {
-  // Extract subdomain from hostname
-  const hostname = request.headers.get('host') || ''
-  const subdomain = hostname.split('.')[0]
+  // Extract tenant slug from query parameter
+  const tenantSlug = request.nextUrl.searchParams.get('tenant')
 
-  // Check if subdomain matches a tenant slug
+  if (!tenantSlug) {
+    return null
+  }
+
+  // Look up tenant by slug
   const tenant = await prisma.tenants.findUnique({
-    where: { slug: subdomain },
+    where: { slug: tenantSlug },
     select: { id: true, slug: true, name: true }
   })
 

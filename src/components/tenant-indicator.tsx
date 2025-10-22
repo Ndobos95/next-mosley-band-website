@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { parseHostname } from '@/lib/environment'
+import { usePathname } from 'next/navigation'
+import { extractTenantSlugFromPath } from '@/lib/tenant-utils'
+import { getCurrentEnvironment } from '@/lib/environment'
 
 export function TenantIndicator() {
+  const pathname = usePathname()
   const [tenantInfo, setTenantInfo] = useState<{
     environment: string
     tenant: string | null
@@ -12,16 +15,16 @@ export function TenantIndicator() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname
-      const parsed = parseHostname(hostname + ':' + window.location.port)
-      
+      const tenantSlug = extractTenantSlugFromPath(pathname)
+      const environment = getCurrentEnvironment()
+
       setTenantInfo({
-        environment: parsed.environment,
-        tenant: parsed.tenantSlug || (parsed.isMainSite ? 'Main Site' : 'Unknown'),
+        environment,
+        tenant: tenantSlug || 'Main Site',
         hostname: window.location.host
       })
     }
-  }, [])
+  }, [pathname])
 
   if (!tenantInfo) return null
 

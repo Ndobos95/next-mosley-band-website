@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useUserSession } from "@/contexts/user-session-context"
 import {
   Sidebar,
@@ -17,9 +18,15 @@ import {
 } from "@/components/ui/sidebar"
 import { adminSidebar, defaultSidebar } from "@/config/sidebar"
 import { LogIn, LogOut, Music, UserPlus } from "lucide-react"
+import { extractTenantSlugFromPath } from "@/lib/tenant-utils"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, role, signOut, isLoading } = useUserSession()
+  const pathname = usePathname()
+
+  // Extract tenant slug from current URL
+  const tenantSlug = extractTenantSlugFromPath(pathname)
+
   console.log("role", role)
   const handleLogout = async () => {
     try {
@@ -31,7 +38,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }
 
-  const navMain = role === 'admin' ? adminSidebar : defaultSidebar
+  // Get base navigation items based on role
+  const baseNavMain = role === 'admin' ? adminSidebar : defaultSidebar
+
+  // Prepend tenant slug to all tenant-scoped URLs
+  const navMain = baseNavMain.map(item => {
+    // Admin routes stay as-is (they're global)
+    if (item.url.startsWith('/admin')) {
+      return item
+    }
+
+    // Tenant-scoped routes need tenant slug prepended
+    if (tenantSlug) {
+      return {
+        ...item,
+        url: `/${tenantSlug}${item.url}`
+      }
+    }
+
+    return item
+  })
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>

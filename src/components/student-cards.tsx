@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Trash2, User, Music, Loader2, DollarSign, Plus, CreditCard } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { PAYMENT_CATEGORIES, type StudentEnrollments, type PaymentCategory } from "@/types/stripe"
+import { extractTenantSlugFromPath } from "@/lib/tenant-utils"
 
 interface Student {
   id: string
@@ -30,14 +31,24 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
   const [enrollmentLoading, setEnrollmentLoading] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
 
+  // Helper to get current tenant slug
+  const getTenantSlug = () => extractTenantSlugFromPath(window.location.pathname)
+
   const fetchStudents = async () => {
     try {
       setLoading(true)
       setError(null)
-      
+
+      const tenantSlug = getTenantSlug()
+      if (!tenantSlug) {
+        setError('Missing tenant context')
+        setLoading(false)
+        return
+      }
+
       const [studentsResponse, enrollmentsResponse] = await Promise.all([
-        fetch('/api/students', { credentials: 'include' }),
-        fetch('/api/payments/enrollments', { credentials: 'include' })
+        fetch(`/api/students?tenant=${tenantSlug}`, { credentials: 'include' }),
+        fetch(`/api/payments/enrollments?tenant=${tenantSlug}`, { credentials: 'include' })
       ])
       
       const studentsData = await studentsResponse.json()
@@ -72,17 +83,20 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
   const handleEnroll = async (studentId: string, category: PaymentCategory) => {
     const loadingKey = `${studentId}-${category}`
     setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: true }))
-    
+
     try {
-      const response = await fetch('/api/payments/enroll', {
+      const tenantSlug = getTenantSlug()
+      if (!tenantSlug) return
+
+      const response = await fetch(`/api/payments/enroll?tenant=${tenantSlug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId, category })
       })
-      
+
       if (response.ok) {
         // Refresh enrollments
-        const enrollmentsResponse = await fetch('/api/payments/enrollments', {
+        const enrollmentsResponse = await fetch(`/api/payments/enrollments?tenant=${tenantSlug}`, {
           credentials: 'include'
         })
         if (enrollmentsResponse.ok) {
@@ -100,17 +114,20 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
   const handleUnenroll = async (studentId: string, category: PaymentCategory) => {
     const loadingKey = `${studentId}-${category}`
     setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: true }))
-    
+
     try {
-      const response = await fetch('/api/payments/enroll', {
+      const tenantSlug = getTenantSlug()
+      if (!tenantSlug) return
+
+      const response = await fetch(`/api/payments/enroll?tenant=${tenantSlug}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId, category })
       })
-      
+
       if (response.ok) {
         // Refresh enrollments
-        const enrollmentsResponse = await fetch('/api/payments/enrollments', {
+        const enrollmentsResponse = await fetch(`/api/payments/enrollments?tenant=${tenantSlug}`, {
           credentials: 'include'
         })
         if (enrollmentsResponse.ok) {
@@ -132,20 +149,23 @@ export function StudentCards({ refreshTrigger }: StudentCardsProps) {
   const handlePayment = async (studentId: string, studentName: string, category: PaymentCategory, incrementCount: number = 1) => {
     const loadingKey = `${studentId}-${category}-payment`
     setEnrollmentLoading(prev => ({ ...prev, [loadingKey]: true }))
-    
+
     try {
-      const response = await fetch('/api/payments/create-checkout', {
+      const tenantSlug = getTenantSlug()
+      if (!tenantSlug) return
+
+      const response = await fetch(`/api/payments/create-checkout?tenant=${tenantSlug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          studentId, 
-          category, 
-          incrementCount 
+        body: JSON.stringify({
+          studentId,
+          category,
+          incrementCount
         })
       })
-      
+
       const data = await response.json()
-      
+
       if (response.ok && data.url) {
         // Redirect to Stripe Checkout
         window.location.href = data.url

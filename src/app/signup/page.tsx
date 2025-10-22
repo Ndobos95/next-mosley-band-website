@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { validateInviteCode } from '@/lib/invite-codes'
 import { InviteCodeForm } from './invite-code-form'
 import { SchoolSignupForm } from './school-signup-form'
@@ -43,12 +44,12 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
             <p className="text-gray-600 mb-6">
               {validation.error || 'The invite code you provided is not valid.'}
             </p>
-            <a 
-              href="/signup" 
+            <Link
+              href="/signup"
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
             >
               Try Again
-            </a>
+            </Link>
           </div>
         </div>
       </div>
