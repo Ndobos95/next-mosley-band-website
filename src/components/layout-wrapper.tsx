@@ -9,7 +9,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   
   // Don't show sidebar on homepage
-  if (pathname === '/' || pathname === '/signup' || pathname === '/login') {
+  if (pathname === '/' || pathname === '/signup' || pathname === '/login' || pathname === '/closed-beta') {
     return <>{children}</>
   }
 
