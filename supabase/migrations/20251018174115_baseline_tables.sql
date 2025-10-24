@@ -60,7 +60,7 @@ CREATE TABLE "public"."invite_codes" (
     "code" TEXT NOT NULL,
     "used" BOOLEAN NOT NULL DEFAULT false,
     "used_at" TIMESTAMPTZ(6),
-    "tenant_id" UUID,
+    "user_id" UUID,
     "expires_at" TIMESTAMPTZ(6) NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
 
@@ -296,5 +296,3 @@ ALTER TABLE "public"."students" ADD CONSTRAINT "students_tenant_id_tenants_id_fk
 -- AddForeignKey
 ALTER TABLE "public"."user_profiles" ADD CONSTRAINT "user_profiles_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
--- AddForeignKey: Foreign key constraint
-ALTER TABLE "public"."invite_codes" ADD CONSTRAINT "invite_codes_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE NO ACTION;

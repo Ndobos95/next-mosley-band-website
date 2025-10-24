@@ -66,7 +66,6 @@ export default function AdminInvitesPage() {
         .insert({
           code,
           expires_at: expiresAt.toISOString(),
-          tenant_id: null // You might want to set this based on your tenant logic
         })
         .select()
         .single()

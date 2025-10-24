@@ -1,74 +1,170 @@
-import { validateInviteCode } from '@/lib/invite-codes'
-import { InviteCodeForm } from './invite-code-form'
-import { SchoolSignupForm } from './school-signup-form'
+"use client"
 
-interface SignupPageProps {
-  searchParams: Promise<{ code?: string }>
-}
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { authClient } from "@/lib/auth-client"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { createClient } from "@/lib/supabase/client"
+const supabase = createClient()
 
-export default async function SignupPage({ searchParams }: SignupPageProps) {
-  const params = await searchParams
-  const inviteCode = params.code
+export default function SignupPage() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
+  const router = useRouter()
+  const [code, setCode] = useState("")
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError("")
+    setSuccess(false)
 
-  // If no invite code provided, show invite code form
-  if (!inviteCode) {
+    if (password !== confirmPassword) {
+      setError("Passwords don't match")
+      setLoading(false)
+      return
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long")
+      setLoading(false)
+      return
+    }
+
+    try {
+      // Clear any existing session first to avoid refresh token conflicts
+      await supabase.auth.signOut()
+      
+      const result = await supabase.auth.signUp({ email, password, options: { data: { code: code, intended_role: 'director' } } })
+
+      if (result.error) {
+        if (result.error.message?.includes('already registered') || result.error.message?.includes('User already registered')) {
+          setError(`This email is already registered. Please log in instead.`)
+        } else {
+          setError(result.error.message || "An error occurred")
+        }
+      } else if (result.data.user) {
+        // With email confirmation enabled, no session until user clicks email link
+        setSuccess(true)
+        setError('')
+        
+        // Redirect to closed beta page after a short delay
+        setTimeout(() => {
+          router.push('/onboarding/director')
+        }, 2000)
+      }
+    } catch {
+      setError("An unexpected error occurred. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Join Boosted Band
-            </h1>
-            <p className="text-gray-600">
-              Enter your invitation code to get started
+      <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1 text-center">
+            <CardTitle className="text-2xl text-green-600">Registration Successful!</CardTitle>
+            <CardDescription>
+              Please check your email for a confirmation link, then you'll be redirected to our closed beta.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-sm text-muted-foreground">
+              Redirecting to closed beta...
             </p>
-          </div>
-          <InviteCodeForm />
-        </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
-  // Validate the invite code
-  const validation = await validateInviteCode(inviteCode)
-
-  if (!validation.valid || !validation.invite) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">
-              Invalid Invite Code
-            </h1>
-            <p className="text-gray-600 mb-6">
-              {validation.error || 'The invite code you provided is not valid.'}
-            </p>
-            <a 
-              href="/signup" 
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-            >
-              Try Again
-            </a>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show school signup form with valid invite
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Create Your School Account
-          </h1>
-          <p className="text-gray-600">
-            Setting up account for <strong>{validation.invite.schoolName}</strong>
-          </p>
-        </div>
-        <SchoolSignupForm invite={validation.invite} />
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl text-center">Join Boosted Band</CardTitle>
+          <CardDescription className="text-center">
+            Create your account to get started with our band management platform
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="code">Invite Code</Label>
+              <Input
+                id="code"
+                type="text"
+                placeholder="Enter your invite code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </div>
+            {error && (
+              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                {error}
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? "Creating account..." : "Create account"}
+            </Button>
+          </form>
+          
+          <div className="mt-6 text-center text-sm">
+            <span className="text-muted-foreground">Already have an account? </span>
+            <Link href="/login" className="text-primary hover:text-primary/80">
+              Sign in
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
